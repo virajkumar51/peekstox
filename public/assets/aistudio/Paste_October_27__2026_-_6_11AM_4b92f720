@@ -1,0 +1,578 @@
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { StockQuote, GlobalIndex, UserProfile, UserAlert, MarketNotification } from './types';
+import { VALIDATION_STOCKS, GLOBAL_INDICES, MOCK_NEWS } from './data/mockStocks';
+import { Navbar } from './components/Navbar';
+import { Sidebar } from './components/Sidebar';
+import { BottomNav } from './components/BottomNav';
+import { Toast, ToastData } from './components/Toast';
+import { GlobalSearchModal } from './components/GlobalSearchModal';
+import { AlertsCenterModal } from './components/AlertsCenterModal';
+import { AuthModal } from './components/AuthModal';
+import { useDeviceLayout } from './hooks/useDeviceLayout';
+import { NAV } from './config/navigation';
+import { formatSignedPercent, nowTime } from './utils/market';
+import './styles/responsive.css';
+
+// Views
+import { DashboardView } from './views/DashboardView';
+import { StockExplorerView } from './views/StockExplorerView';
+import { CompareView } from './views/CompareView';
+import { AlgoLabView } from './views/AlgoLabView';
+import { AIResearchView } from './views/AIResearchView';
+import { WatchlistView } from './views/WatchlistView';
+import { MarketOverviewView } from './views/MarketOverviewView';
+import { NewsCenterView } from './views/NewsCenterView';
+import { SettingsView } from './views/SettingsView';
+
+/* ---------- Routing: the URL hash is mirrored from state ----------
+   #/dashboard, #/explorer/AAPL, #/news ...  Back/forward and shared links work. */
+const VIEW_IDS = Object.keys(NAV);
+const DEFAULT_TICKER = 'AAPL';
+const isViewId = (v: string) => VIEW_IDS.includes(v);
+
+function parseRoute() {
+  const [, rawView = '', rawTicker = ''] = window.location.hash.replace(/^#/, '').split('/');
+  let ticker = '';
+  try {
+    ticker = decodeURIComponent(rawTicker);
+  } catch {
+    /* malformed hash: ignore the ticker */
+  }
+  return { view: isViewId(rawView) ? rawView : 'dashboard', ticker };
+}
+const buildPath = (view: string, ticker: string) =>
+  view === 'explorer' && ticker ? `/explorer/${encodeURIComponent(ticker)}` : `/${view}`;
+
+const LIVE_SOURCE = 'Yahoo Finance (Live)';
+const hasSpark = (s?: number[]) => Array.isArray(s) && s.length > 2;
+
+function mergeLiveQuote(s: StockQuote, live: any): StockQuote {
+  return {
+    ...s,
+    price: live.price,
+    change: live.change,
+    changePercent: live.changePercent,
+    currency: live.currency || s.currency,
+    exchange: live.exchange || s.exchange,
+    previousClose: live.previousClose ?? s.previousClose,
+    dayHigh: live.dayHigh ?? s.dayHigh,
+    dayLow: live.dayLow ?? s.dayLow,
+    volume: live.volume ?? s.volume,
+    yearHigh: live.yearHigh ?? s.yearHigh,
+    yearLow: live.yearLow ?? s.yearLow,
+    sparkline: hasSpark(live.sparkline) ? live.sparkline : s.sparkline,
+    lastUpdated: nowTime(),
+    dataSource: LIVE_SOURCE,
+  };
+}
+
+const GUEST_USER = (): UserProfile => ({
+  id: `usr_guest_${Date.now()}`,
+  name: 'Guest Researcher',
+  email: 'guest@peekstox.local',
+  role: 'member',
+  preferredMarket: 'GLOBAL',
+  baseCurrency: 'USD',
+  defaultTimeframe: '1M',
+  emailAlertsEnabled: false,
+  inAppAlertsEnabled: true,
+  soundEnabled: true,
+  watchlist: ['AAPL', 'NVDA', 'RELIANCE'],
+  alerts: [],
+});
+
+export default function App() {
+  const layout = useDeviceLayout();
+
+  const [activeView, setActiveView] = useState<string>(() => parseRoute().view);
+  const [selectedStockTicker, setSelectedStockTicker] = useState<string>(() => parseRoute().ticker || DEFAULT_TICKER);
+
+  // Follow the OS theme until the person picks one explicitly.
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('pkstox_theme');
+      if (saved) return saved === 'dark';
+    } catch {
+      /* storage blocked */
+    }
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? true;
+  });
+
+  // Live Market Quotes State (connected to Yahoo Finance)
+  const [stocks, setStocks] = useState<StockQuote[]>(VALIDATION_STOCKS);
+  const [indices, setIndices] = useState<GlobalIndex[]>(GLOBAL_INDICES);
+  const [isLiveConnected, setIsLiveConnected] = useState(true);
+  const [lastLiveSyncTime, setLastLiveSyncTime] = useState<Date | null>(null);
+  const [isSyncingLiveQuotes, setIsSyncingLiveQuotes] = useState(false);
+
+  // Modals state
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isAlertsOpen, setIsAlertsOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+
+  const [activeToast, setActiveToast] = useState<ToastData | null>(null);
+  const dismissToast = useCallback(() => setActiveToast(null), []);
+  const showToast = useCallback((t: Omit<ToastData, 'id'> & { id?: string }) => {
+    setActiveToast({ ...t, id: t.id ?? `toast_${Date.now()}` });
+  }, []);
+
+  // User Profile & Authentication State
+  const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
+    try {
+      const saved = localStorage.getItem('pkstox_user');
+      if (saved) return JSON.parse(saved);
+    } catch {
+      /* fall through to defaults */
+    }
+    return {
+      id: 'usr_001',
+      name: 'Devi Bharati',
+      email: 'devibharati157@gmail.com',
+      avatarUrl: '/src/assets/images/avatar_user_profile_1792044661545.jpg',
+      role: 'researcher',
+      preferredMarket: 'GLOBAL',
+      baseCurrency: 'USD',
+      defaultTimeframe: '1M',
+      emailAlertsEnabled: true,
+      inAppAlertsEnabled: true,
+      soundEnabled: true,
+      watchlist: ['AAPL', 'MSFT', 'NVDA', 'RELIANCE', 'HDFCBANK', 'GOOGL'],
+      alerts: [
+        { id: 'alt_001', ticker: 'AAPL', companyName: 'Apple Inc.', conditionType: 'price_above', targetValue: 240.0, note: 'Breakout watch above resistance level', isActive: true, createdAt: new Date().toISOString(), isTriggered: false },
+        { id: 'alt_002', ticker: 'NVDA', companyName: 'NVIDIA Corporation', conditionType: 'rsi_overbought', targetValue: 70.0, note: 'Momentum take-profit review', isActive: true, createdAt: new Date().toISOString(), isTriggered: false },
+        { id: 'alt_003', ticker: 'RELIANCE', companyName: 'Reliance Industries Ltd.', conditionType: 'change_percent', targetValue: 2.0, note: 'NSE session swing alert', isActive: true, createdAt: new Date().toISOString(), isTriggered: false },
+      ],
+    };
+  });
+
+  // The polling interval below is created once, so it must read the *latest*
+  // user through a ref. Reading `currentUser` directly froze alerts at their
+  // first-render values (new, deleted and toggled alerts were ignored).
+  const userRef = useRef(currentUser);
+  useEffect(() => {
+    userRef.current = currentUser;
+  }, [currentUser]);
+
+  // Notifications State
+  const [notifications, setNotifications] = useState<MarketNotification[]>([
+    { id: 'notif-1', ticker: 'AAPL', title: 'AAPL Price Milestone Alert', message: 'Apple Inc. advanced +1.35% intraday to reach $234.85, approaching the $240.00 watch target.', timestamp: new Date().toISOString(), type: 'price', isRead: false, severity: 'bullish' },
+    { id: 'notif-2', ticker: 'NVDA', title: 'NVDA Technical Momentum Trigger', message: 'NVIDIA RSI(14) reading elevated to 68.2 following hyperscaler CoWoS packaging capacity expansion news.', timestamp: new Date(Date.now() - 3600000).toISOString(), type: 'indicator', isRead: false, severity: 'bullish' },
+  ]);
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  /* ---------- Effects ---------- */
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('pkstox_user', JSON.stringify(currentUser));
+    } catch {
+      /* storage full or blocked */
+    }
+  }, [currentUser]);
+
+  // State -> URL (push so Back works), and keep the tab title in step.
+  useEffect(() => {
+    const target = `#${buildPath(activeView, selectedStockTicker)}`;
+    if (window.location.hash !== target) {
+      window.history[window.location.hash === '' ? 'replaceState' : 'pushState'](null, '', target);
+    }
+    document.title = `${NAV[activeView]?.label ?? 'Markets'} · PeekStox`;
+  }, [activeView, selectedStockTicker]);
+
+  // URL -> state (Back, Forward, edited address bar).
+  useEffect(() => {
+    const onPop = () => {
+      const r = parseRoute();
+      setActiveView(r.view);
+      if (r.ticker) setSelectedStockTicker(r.ticker);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  // After a screen change, reset scroll and move focus to the content so
+  // keyboard and screen-reader users start at the top of the new screen.
+  const mainRef = useRef<HTMLElement>(null);
+  const firstView = useRef(true);
+  useEffect(() => {
+    if (firstView.current) {
+      firstView.current = false;
+      return;
+    }
+    window.scrollTo({ top: 0 });
+    mainRef.current?.focus({ preventScroll: true });
+  }, [activeView]);
+
+  // Global Keyboard Shortcuts (⌘K / Ctrl+K for search)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsSearchOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Theme sync (class, native controls, and the browser/status bar colour)
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle('dark', isDark);
+    root.classList.toggle('light', !isDark);
+    root.style.colorScheme = isDark ? 'dark' : 'light';
+    let meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.setAttribute('name', 'theme-color');
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute('content', isDark ? '#0A0B0D' : '#F5F5F7');
+  }, [isDark]);
+
+  const toggleTheme = () => {
+    const next = !isDark;
+    setIsDark(next);
+    try {
+      localStorage.setItem('pkstox_theme', next ? 'dark' : 'light');
+    } catch {
+      /* ignore */
+    }
+  };
+
+  /* ---------- Sound ---------- */
+  const audioRef = useRef<AudioContext | null>(null);
+  const playAlertChime = () => {
+    if (!userRef.current.soundEnabled) return;
+    try {
+      const Ctor = window.AudioContext || (window as any).webkitAudioContext;
+      if (!audioRef.current) audioRef.current = new Ctor(); // reuse one context; browsers cap how many you can open
+      const ctx = audioRef.current;
+      if (ctx.state === 'suspended') void ctx.resume();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.35);
+    } catch {
+      /* AudioContext may be blocked before interaction */
+    }
+  };
+
+  /* ---------- Navigation helpers ---------- */
+  const navigate = useCallback((view: string) => {
+    if (isViewId(view)) setActiveView(view);
+  }, []);
+  const openStock = (ticker: string) => {
+    setSelectedStockTicker(ticker);
+    setActiveView('explorer');
+  };
+  const openAlertsFor = (ticker: string) => {
+    setSelectedStockTicker(ticker);
+    setIsAlertsOpen(true);
+  };
+
+  /* ---------- Watchlist & alerts ---------- */
+  const handleToggleWatchlist = (ticker: string) => {
+    setCurrentUser((prev) => {
+      const exists = prev.watchlist.includes(ticker);
+      return { ...prev, watchlist: exists ? prev.watchlist.filter((t) => t !== ticker) : [...prev.watchlist, ticker] };
+    });
+  };
+
+  const handleCreateAlert = (alertData: Omit<UserAlert, 'id' | 'createdAt' | 'isTriggered'>) => {
+    const newAlert: UserAlert = { ...alertData, id: `alt_${Date.now()}`, createdAt: new Date().toISOString(), isTriggered: false };
+    setCurrentUser((prev) => ({ ...prev, alerts: [newAlert, ...prev.alerts] }));
+    showToast({
+      title: 'Market Alert Configured',
+      message: `Alert activated for ${newAlert.ticker} on ${newAlert.conditionType.replace('_', ' ')}.`,
+      severity: 'info',
+      duration: 4000,
+    });
+  };
+
+  const handleDeleteAlert = (id: string) =>
+    setCurrentUser((prev) => ({ ...prev, alerts: prev.alerts.filter((a) => a.id !== id) }));
+
+  const handleToggleAlert = (id: string, active: boolean) =>
+    setCurrentUser((prev) => ({ ...prev, alerts: prev.alerts.map((a) => (a.id === id ? { ...a, isActive: active } : a)) }));
+
+  const raiseNotification = (n: MarketNotification) => {
+    setNotifications((prev) => [n, ...prev]);
+    playAlertChime();
+    showToast({ id: n.id, title: n.title, message: n.message, severity: n.severity === 'bearish' ? 'bearish' : 'bullish', duration: 5000 });
+  };
+
+  const checkAlertsAgainstQuotes = (liveQuotes: Record<string, any>) => {
+    userRef.current.alerts.forEach((alert) => {
+      if (!alert.isActive || alert.isTriggered) return;
+      const live = liveQuotes[alert.ticker];
+      if (!live) return;
+
+      let reason = '';
+      if (alert.conditionType === 'price_above' && alert.targetValue && live.price >= alert.targetValue) {
+        reason = `${alert.ticker} climbed to $${live.price.toFixed(2)}, crossing above watch target of $${alert.targetValue.toFixed(2)}.`;
+      } else if (alert.conditionType === 'price_below' && alert.targetValue && live.price <= alert.targetValue) {
+        reason = `${alert.ticker} dropped to $${live.price.toFixed(2)}, breaching below floor threshold of $${alert.targetValue.toFixed(2)}.`;
+      } else if (alert.conditionType === 'change_percent' && alert.targetValue && Math.abs(live.changePercent) >= alert.targetValue) {
+        reason = `${alert.ticker} intraday change reached ${formatSignedPercent(live.changePercent)} (threshold: ${alert.targetValue}%).`;
+      }
+      if (!reason) return;
+
+      setCurrentUser((prev) => ({ ...prev, alerts: prev.alerts.map((a) => (a.id === alert.id ? { ...a, isTriggered: true } : a)) }));
+      raiseNotification({
+        id: `notif_${Date.now()}_${alert.id}`,
+        ticker: alert.ticker,
+        title: `Live Alert Triggered: ${alert.ticker}`,
+        message: reason,
+        timestamp: new Date().toISOString(),
+        type: 'price',
+        isRead: false,
+        severity: live.changePercent >= 0 ? 'bullish' : 'bearish',
+      });
+    });
+  };
+
+  /* ---------- Live quotes ---------- */
+  const fetchLiveQuotes = async (isManual = false, signal?: AbortSignal) => {
+    setIsSyncingLiveQuotes(true);
+    try {
+      const res = await fetch('/api/market/live-quotes', { signal });
+      if (!res.ok) {
+        setIsLiveConnected(false);
+        return;
+      }
+      const data = await res.json();
+      const liveQuotes = data?.quotes || {};
+
+      setStocks((prev) => prev.map((s) => (liveQuotes[s.ticker] ? mergeLiveQuote(s, liveQuotes[s.ticker]) : s)));
+      setIndices((prev) =>
+        prev.map((idx) => {
+          const live = liveQuotes[idx.id];
+          if (!live) return idx;
+          return {
+            ...idx,
+            value: live.price,
+            change: live.change,
+            changePercent: live.changePercent,
+            high: live.dayHigh ?? idx.high,
+            low: live.dayLow ?? idx.low,
+            sparkline: hasSpark(live.sparkline) ? live.sparkline : idx.sparkline,
+            status: 'Live',
+            lastUpdated: nowTime(),
+          };
+        }),
+      );
+
+      setIsLiveConnected(true);
+      setLastLiveSyncTime(new Date());
+      if (isManual) {
+        showToast({
+          title: 'Yahoo Finance Live Sync',
+          message: `Synchronized real-time quotes across ${Object.keys(liveQuotes).length} global assets.`,
+          severity: 'bullish',
+          duration: 3000,
+        });
+      }
+      checkAlertsAgainstQuotes(liveQuotes);
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return;
+      setIsLiveConnected(false);
+    } finally {
+      setIsSyncingLiveQuotes(false);
+    }
+  };
+
+  const fetchSingleLiveQuote = async (ticker: string) => {
+    setIsSyncingLiveQuotes(true);
+    try {
+      const res = await fetch(`/api/market/live/${encodeURIComponent(ticker)}`);
+      if (!res.ok) return;
+      const live = (await res.json())?.quote;
+      if (!live) return;
+      setStocks((prev) => {
+        const key = ticker.toUpperCase();
+        if (prev.some((s) => s.ticker.toUpperCase() === key)) {
+          return prev.map((s) => (s.ticker.toUpperCase() === key ? mergeLiveQuote(s, live) : s));
+        }
+        const newStock: StockQuote = {
+          ticker: live.ticker || ticker,
+          name: live.shortName || ticker,
+          exchange: live.exchange || 'Global Market',
+          country: 'International',
+          currency: live.currency || 'USD',
+          sector: 'Global Equity',
+          industry: 'Diversified',
+          price: live.price,
+          change: live.change,
+          changePercent: live.changePercent,
+          previousClose: live.previousClose ?? live.price,
+          open: live.previousClose ?? live.price,
+          dayHigh: live.dayHigh ?? live.price,
+          dayLow: live.dayLow ?? live.price,
+          yearHigh: live.yearHigh ?? Number((live.price * 1.25).toFixed(2)),
+          yearLow: live.yearLow ?? Number((live.price * 0.75).toFixed(2)),
+          volume: live.volume || 1000000,
+          avgVolume: live.volume || 1000000,
+          marketCap: live.price * 50000000,
+          description: `${live.shortName || ticker} is a globally traded asset tracked with live real-time price feeds via Yahoo Finance.`,
+          lastUpdated: nowTime(),
+          dataSource: LIVE_SOURCE,
+          sparkline: hasSpark(live.sparkline) ? live.sparkline : [live.price],
+        };
+        return [newStock, ...prev];
+      });
+    } catch (e) {
+      console.warn('Single quote fetch error:', e);
+    } finally {
+      setIsSyncingLiveQuotes(false);
+    }
+  };
+
+  const handleSelectStock = (ticker: string) => {
+    openStock(ticker);
+    fetchSingleLiveQuote(ticker);
+  };
+
+  // Poll every 15s, but not while the tab is hidden (saves battery and data on phones).
+  useEffect(() => {
+    const controller = new AbortController();
+    const tick = () => {
+      if (!document.hidden) fetchLiveQuotes(false, controller.signal).catch(() => {});
+    };
+    tick();
+    const interval = setInterval(tick, 15000);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', tick);
+    };
+  }, []);
+
+  const handleSimulateAlertTrigger = () => {
+    const s = stocks[Math.floor(Math.random() * stocks.length)] || stocks[0];
+    raiseNotification({
+      id: `notif_${Date.now()}`,
+      ticker: s.ticker,
+      title: `Live Alert: ${s.ticker} Movement`,
+      message: `${s.name} crossed the threshold! Current price: ${s.currency === 'INR' ? '₹' : '$'}${s.price.toFixed(2)} (${formatSignedPercent(s.changePercent)}).`,
+      timestamp: new Date().toISOString(),
+      type: 'price',
+      isRead: false,
+      severity: s.changePercent >= 0 ? 'bullish' : 'bearish',
+    });
+  };
+
+  /* ---------- Account ---------- */
+  const handleLogin = async (email: string) => setCurrentUser((prev) => ({ ...prev, email, name: email.split('@')[0] }));
+  const handleRegister = async (data: Partial<UserProfile>) => setCurrentUser((prev) => ({ ...prev, ...data, id: `usr_${Date.now()}` }));
+  const handleUpdateProfile = async (updated: Partial<UserProfile>) => setCurrentUser((prev) => ({ ...prev, ...updated }));
+  const handleLogout = () => {
+    setCurrentUser(GUEST_USER());
+    setIsAuthOpen(false);
+  };
+
+  /* ---------- Render ---------- */
+  // A foldable spanning two screens gives the content column only one screen's width.
+  const contentLayout = layout.isSpanned ? 'medium' : layout.mode;
+
+  return (
+    <div
+      className="app-root bg-[var(--bg-main)] text-[var(--text-primary)] transition-colors"
+      data-layout={contentLayout}
+      data-bottom-nav={layout.showBottomNav}
+    >
+      <a
+        href="#main"
+        onClick={(e) => {
+          e.preventDefault(); // keep the hash router out of this
+          mainRef.current?.focus();
+        }}
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:rounded-lg focus:bg-[var(--bg-card)] focus:px-4 focus:py-2 focus:text-sm focus:font-semibold"
+      >
+        Skip to main content
+      </a>
+
+      <Toast toast={activeToast} onDismiss={dismissToast} />
+
+      <div className="app-shell">
+        {layout.showSidebar && (
+          <div className="app-nav-slot">
+            <Sidebar
+              activeView={activeView}
+              onNavigate={navigate}
+              unreadAlertsCount={unreadCount}
+              onOpenAlerts={() => setIsAlertsOpen(true)}
+              user={currentUser}
+              onOpenAuth={() => setIsAuthOpen(true)}
+            />
+          </div>
+        )}
+
+        <div className="app-column">
+          <Navbar
+            user={currentUser}
+            notifications={notifications}
+            isDark={isDark}
+            onToggleTheme={toggleTheme}
+            onOpenSearch={() => setIsSearchOpen(true)}
+            onOpenAlerts={() => setIsAlertsOpen(true)}
+            onOpenAuth={() => setIsAuthOpen(true)}
+            activeView={activeView}
+            onNavigate={navigate}
+            isLiveConnected={isLiveConnected}
+            isSyncingLiveQuotes={isSyncingLiveQuotes}
+            lastLiveSyncTime={lastLiveSyncTime}
+            onRefreshQuotes={() => fetchLiveQuotes(true)}
+            liveIndices={indices}
+            featuredStocks={stocks}
+            onSelectStock={openStock}
+            showBrand={!layout.showSidebar}
+            compact={layout.mode === 'compact'}
+          />
+
+          <main id="main" ref={mainRef} tabIndex={-1} className="app-main outline-none">
+            <div className="app-content">
+              {activeView === 'dashboard' && (
+                <DashboardView indices={indices} stocks={stocks} news={MOCK_NEWS} watchlist={currentUser.watchlist} onSelectStock={openStock} onNavigate={navigate} onOpenAlerts={() => setIsAlertsOpen(true)} />
+              )}
+              {activeView === 'explorer' && (
+                <StockExplorerView selectedTicker={selectedStockTicker} stocks={stocks} indices={indices} watchlist={currentUser.watchlist} onToggleWatchlist={handleToggleWatchlist} onSelectStock={setSelectedStockTicker} onOpenAlertForStock={openAlertsFor} onRefreshSingleQuote={fetchSingleLiveQuote} isSyncing={isSyncingLiveQuotes} />
+              )}
+              {activeView === 'compare' && <CompareView stocks={stocks} onSelectStock={openStock} />}
+              {activeView === 'algo' && <AlgoLabView stocks={stocks} onSelectStock={openStock} />}
+              {activeView === 'assistant' && (
+                <AIResearchView stocks={stocks} activeStockTicker={selectedStockTicker} onSelectStock={setSelectedStockTicker} />
+              )}
+              {activeView === 'watchlist' && (
+                <WatchlistView watchlist={currentUser.watchlist} stocks={stocks} onSelectStock={openStock} onRemoveFromWatchlist={handleToggleWatchlist} onOpenSearch={() => setIsSearchOpen(true)} onOpenAlertForStock={openAlertsFor} />
+              )}
+              {activeView === 'overview' && <MarketOverviewView indices={indices} stocks={stocks} onSelectStock={handleSelectStock} />}
+              {activeView === 'news' && <NewsCenterView news={MOCK_NEWS} stocks={stocks} onSelectStock={openStock} />}
+              {(activeView === 'settings' || activeView === 'about') && (
+                <SettingsView user={currentUser} isDark={isDark} initialTab={activeView === 'about' ? 'about' : 'preferences'} onToggleTheme={toggleTheme} onUpdateProfile={handleUpdateProfile} onOpenAuth={() => setIsAuthOpen(true)} onLogout={handleLogout} onNavigate={navigate} />
+              )}
+            </div>
+          </main>
+        </div>
+      </div>
+
+      {layout.showBottomNav && (
+        <BottomNav activeView={activeView} onNavigate={navigate} onOpenAlerts={() => setIsAlertsOpen(true)} unreadAlertsCount={unreadCount} />
+      )}
+
+      <GlobalSearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} stocks={stocks} onSelectStock={openStock} />
+
+      <AlertsCenterModal isOpen={isAlertsOpen} onClose={() => setIsAlertsOpen(false)} stocks={stocks} alerts={currentUser.alerts} notifications={notifications} onCreateAlert={handleCreateAlert} onDeleteAlert={handleDeleteAlert} onToggleAlert={handleToggleAlert} onMarkAllNotificationsRead={() => setNotifications((p) => p.map((n) => ({ ...n, isRead: true })))} onClearNotifications={() => setNotifications([])} onSimulateAlertTrigger={handleSimulateAlertTrigger} />
+
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} currentUser={currentUser} onLogin={handleLogin} onRegister={handleRegister} onUpdateProfile={handleUpdateProfile} onLogout={handleLogout} />
+    </div>
+  );
+}

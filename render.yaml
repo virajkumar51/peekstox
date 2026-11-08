@@ -1,0 +1,15 @@
+# Render Blueprint for PeekStox Full-Stack Web Service
+services:
+  - type: web
+    name: peekstox-market-platform
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/market/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000

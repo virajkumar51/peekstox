@@ -1,0 +1,80 @@
+:root {
+  --gutter: 1rem;
+  --sidebar-w: 16rem;
+  --bottom-nav-h: 4rem;
+  --toast-top: 5rem;
+  --ps-border: var(--border);
+  --ps-focus: var(--up);
+}
+
+.app-root :focus-visible { outline: 2px solid var(--ps-focus); outline-offset: 2px; }
+.app-root { min-height: 100vh; min-height: 100dvh; background-color: var(--bg-main); color: var(--text-primary); }
+
+.app-shell { display: flex; min-height: 100vh; min-height: 100dvh; }
+.app-nav-slot { flex: none; width: var(--sidebar-w); }
+.app-sidebar { position: sticky; top: 0; height: 100vh; height: 100dvh; background-color: var(--bg-sidebar); }
+.app-column { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.app-main {
+  flex: 1;
+  padding: 1rem max(1rem, env(safe-area-inset-right, 0px)) 1.5rem max(1rem, env(safe-area-inset-left, 0px));
+}
+.app-content { width: 100%; max-width: 1360px; margin-inline: auto; }
+.app-root[data-bottom-nav='true'] .app-main {
+  padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px) + 2rem);
+}
+
+@media (min-width: 600px) {
+  .app-main { padding-block: 1.5rem; padding-inline: max(1.5rem, env(safe-area-inset-left, 0px)) max(1.5rem, env(safe-area-inset-right, 0px)); }
+}
+@media (min-width: 1024px) {
+  .app-main { padding-inline: max(2rem, env(safe-area-inset-left, 0px)) max(2rem, env(safe-area-inset-right, 0px)); }
+}
+
+/* ---------- Markets dashboard grid (Laptop layout rules C) ---------- */
+.dash-grid {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .dash-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "hero"
+      "sent-ai"
+      "tech-pred"
+      "watch"
+      "live"
+      "news";
+  }
+  .dash-hero { grid-area: hero; }
+  .dash-sent-ai { grid-area: sent-ai; display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+  .dash-tech-pred { grid-area: tech-pred; display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+  .dash-watch { grid-area: watch; }
+  .dash-live { grid-area: live; }
+  .dash-news { grid-area: news; }
+}
+
+@media (min-width: 1280px) {
+  .dash-grid {
+    grid-template-columns: minmax(0, 1.62fr) minmax(300px, 1fr);
+    grid-template-areas:
+      "hero sent-ai"
+      "tech-pred sent-ai"
+      "watch news"
+      "live news";
+    align-items: start;
+  }
+  .dash-hero { grid-area: hero; }
+  .dash-sent-ai { grid-area: sent-ai; display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+  .dash-tech-pred { grid-area: tech-pred; display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+  .dash-watch { grid-area: watch; }
+  .dash-live { grid-area: live; }
+  .dash-news { grid-area: news; min-width: 300px; }
+}
+
+/* ---------- Horizontal scrollers ---------- */
+.hscroll { display: flex; gap: 0.5rem; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.hscroll > * { flex: 0 0 auto; scroll-snap-align: start; }
+.hscroll::-webkit-scrollbar { display: none; }

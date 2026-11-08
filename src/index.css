@@ -1,0 +1,518 @@
+@import "tailwindcss";
+@variant dark (&:where(.dark, .dark *));
+
+/* =====================================================================
+   PeekStox global styles (Tailwind v4)
+   One file: tokens, light/dark themes, liquid glass, app shell, bottom bar.
+   If you still import styles/responsive.css anywhere, delete that import.
+   ===================================================================== */
+
+@layer base {
+  :root {
+    /* ---- Dark theme (default) ---- */
+    --bg-main: #0A0B0D;
+    --bg-card: #121417;
+    --bg-card-hover: #1A1D21;
+    --bg-surface-raised: #1A1D21;
+    --subtle-fill: #1A1D21;
+    --border-color: rgb(255 255 255 / 0.10);
+    --border-hover: rgb(255 255 255 / 0.18);
+    --text-primary: #F2F3F5;
+    --text-secondary: #A8B0BA;
+    --text-tertiary: #8A93A0;
+    --text-muted: #8A93A0;
+    --accent-mint: #34E5A0;
+    --accent-mint-glow: rgba(52, 229, 160, 0.12);
+    --accent-text: #34E5A0;
+    --accent-soft: rgba(52, 229, 160, 0.12);
+    --positive: #34E5A0;
+    --positive-text: #34E5A0;
+    --positive-soft: rgba(52, 229, 160, 0.16);
+    --accent-red: #FF6B6B;
+    --negative: #FF6B6B;
+    --negative-soft: rgba(255, 107, 107, 0.16);
+    --accent-ai: #8b5cf6;
+    --active-pill: rgb(52 229 160 / 0.15);
+    --ps-border: var(--border-color);
+    --ps-focus: #34E5A0;
+
+    /* layout */
+    --sidebar-w: 16rem;
+    --bottom-nav-h: 5.5rem; /* floating dock + its offset from the edge */
+    --toast-top: 5rem;
+  }
+
+  .light {
+    /* ---- Light theme: warm cream, sage green, terracotta ----
+       Contrast on the card (#FBF7EE): secondary 6.8:1, muted 5.4:1,
+       green 5.7:1, terracotta 5.1:1. */
+    --bg-main: #F4ECDD;
+    --bg-card: #FBF7EE;
+    --bg-card-hover: #F3EBDA;
+    --bg-surface-raised: #F3EBDA;
+    --subtle-fill: #EFE6D2;
+    --border-color: rgb(120 92 40 / 0.16);
+    --border-hover: rgb(120 92 40 / 0.28);
+    --text-primary: #2A241C;
+    --text-secondary: #5F5546;
+    --text-tertiary: #6E6451;
+    --text-muted: #6E6451;
+    --accent-mint: #2A6F3E;
+    --accent-mint-glow: rgb(42 111 62 / 0.15);
+    --accent-text: #2A6F3E;
+    --accent-soft: rgb(143 196 140 / 0.38);
+    --positive: #2A6F3E;
+    --positive-text: #1F5A32;
+    --positive-soft: rgb(143 196 140 / 0.38);
+    --accent-red: #B4453F;
+    --negative: #B4453F;
+    --negative-soft: rgb(214 134 120 / 0.28);
+    --accent-ai: #8A6A2B;
+    --active-pill: rgb(120 92 40 / 0.13);
+    --ps-focus: #2A6F3E;
+
+    /* Any component that hard-codes Tailwind emerald / green / rose / red
+       now follows the light palette instead of showing mint. */
+    --color-emerald-300: #5E9B6B;
+    --color-emerald-400: #2A6F3E;
+    --color-emerald-500: #4E9A5E;
+    --color-emerald-600: #2A6F3E;
+    --color-emerald-700: #1F5A32;
+    --color-green-400: #2A6F3E;
+    --color-green-500: #4E9A5E;
+    --color-green-600: #2A6F3E;
+    --color-rose-400: #B4453F;
+    --color-rose-500: #C9605A;
+    --color-rose-600: #B4453F;
+    --color-red-400: #B4453F;
+    --color-red-500: #C9605A;
+    --color-red-600: #B4453F;
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    overflow-x: hidden;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+  html { scroll-behavior: smooth; }
+  :focus-visible { outline: 2px solid var(--ps-focus); outline-offset: 2px; }
+}
+
+@layer components {
+  /* ---------- Status colours (follow the theme tokens) ---------- */
+  .tone-up   { color: var(--positive); }
+  .tone-down { color: var(--negative); }
+  .tone-info { color: #38bdf8; }
+  .light .tone-info { color: #1F6A8A; }
+  .tone-chip { background-color: rgb(128 128 128 / 0.16); }
+
+  /* ---------- Ambient colour behind the glass ---------- */
+  .app-root::before {
+    content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(55% 45% at 8% 6%,    rgb(16 185 129 / 0.32), transparent 70%),
+      radial-gradient(50% 45% at 96% 10%,  rgb(139 92 246 / 0.30), transparent 70%),
+      radial-gradient(60% 50% at 70% 100%, rgb(6 182 212 / 0.20),  transparent 70%);
+  }
+  .light .app-root::before {
+    background:
+      radial-gradient(55% 45% at 8% 6%,    rgb(232 190 110 / 0.30), transparent 70%),
+      radial-gradient(50% 45% at 96% 10%,  rgb(150 200 150 / 0.24), transparent 70%),
+      radial-gradient(60% 50% at 70% 100%, rgb(240 180 150 / 0.20), transparent 70%);
+  }
+
+  /* ---------- Liquid glass ---------- */
+  .glass, .ps-card {
+    position: relative; isolation: isolate;
+    background: linear-gradient(150deg, rgb(255 255 255 / 0.09), rgb(255 255 255 / 0.03) 60%), rgb(14 16 20 / 0.62);
+    -webkit-backdrop-filter: blur(22px) saturate(170%);
+    backdrop-filter: blur(22px) saturate(170%);
+    box-shadow:
+      0 20px 40px -10px rgb(0 0 0 / 0.6),
+      0 4px 12px -2px rgb(0 0 0 / 0.35),
+      inset 0 1px 1.5px 0 rgb(255 255 255 / 0.20),
+      inset 0 -1px 1px 0 rgb(0 0 0 / 0.35);
+  }
+  .ps-card { border: 1px solid var(--border-color); border-radius: 1.25rem; }
+  .glass::before, .ps-card::before {
+    content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+    background: linear-gradient(155deg, rgb(255 255 255 / 0.15) 0%, transparent 34%);
+  }
+  .light .glass, .light .ps-card {
+    background: linear-gradient(150deg, rgb(255 252 244 / 0.94), rgb(251 246 234 / 0.72));
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9), 0 10px 28px rgb(122 92 40 / 0.10);
+  }
+  .light .glass::before, .light .ps-card::before { background: linear-gradient(155deg, rgb(255 255 255 / 0.6), transparent 40%); }
+
+  .glass-bar {
+    background: rgb(10 11 13 / 0.55);
+    -webkit-backdrop-filter: blur(24px) saturate(170%);
+    backdrop-filter: blur(24px) saturate(170%);
+  }
+  .light .glass-bar { background: rgb(244 236 221 / 0.72); }
+
+  .tile { background: rgb(255 255 255 / 0.05); border: 1px solid rgb(255 255 255 / 0.08); border-radius: 0.75rem; }
+  .light .tile { background: rgb(120 92 40 / 0.06); border-color: rgb(120 92 40 / 0.10); }
+
+  /* Hero card: brand glow, identical in up and down markets */
+  .ps-hero {
+    background:
+      radial-gradient(90% 120% at 0% 0%,     rgb(20 210 150 / 0.50), transparent 60%),
+      radial-gradient(90% 130% at 100% 100%, rgb(124 77 255 / 0.62), transparent 60%),
+      linear-gradient(125deg, rgb(10 90 70 / 0.55), rgb(40 40 90 / 0.35) 55%, rgb(70 40 150 / 0.55)),
+      rgb(14 16 20 / 0.55);
+  }
+  .light .ps-hero {
+    background:
+      radial-gradient(85% 120% at 100% 0%, rgb(232 196 120 / 0.48), transparent 62%),
+      radial-gradient(85% 130% at 0% 100%, rgb(160 205 150 / 0.38), transparent 62%),
+      linear-gradient(150deg, rgb(255 252 244 / 0.94), rgb(251 246 234 / 0.72));
+  }
+
+  .pill-up, .pill-down { border: 1px solid; }
+  .pill-up   { color: var(--positive); background: var(--positive-soft); border-color: color-mix(in srgb, var(--positive) 45%, transparent); box-shadow: 0 0 18px color-mix(in srgb, var(--positive) 30%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.18); }
+  .pill-down { color: var(--negative); background: var(--negative-soft); border-color: color-mix(in srgb, var(--negative) 45%, transparent); box-shadow: 0 0 18px color-mix(in srgb, var(--negative) 28%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.18); }
+  .light .pill-up   { color: var(--positive-text); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.7); }
+  .light .pill-down { color: #8F2F2B;               box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.7); }
+
+  .live-chip { border: 1px solid color-mix(in srgb, var(--positive) 35%, transparent); background: var(--positive-soft); color: var(--positive); }
+  .light .live-chip { color: var(--positive-text); }
+
+  .ps-orb {
+    border-radius: 999px;
+    background:
+      radial-gradient(circle at 30% 25%, rgb(255 255 255 / 0.95) 0, rgb(255 255 255 / 0) 22%),
+      radial-gradient(circle at 50% 58%, #67e8f9 0%, #22d3ee 38%, #3b82f6 72%, #6d28d9 100%);
+    box-shadow: 0 0 30px rgb(34 211 238 / 0.45), inset -6px -8px 14px rgb(30 27 75 / 0.35);
+  }
+  .light .ps-orb {
+    background:
+      radial-gradient(circle at 30% 25%, #fff 0, rgb(255 255 255 / 0) 24%),
+      radial-gradient(circle at 50% 58%, #F6E7C1 0%, #E9CF94 45%, #C9A65B 100%);
+    box-shadow: 0 0 22px rgb(214 175 90 / 0.45), inset -6px -8px 14px rgb(120 90 40 / 0.25);
+  }
+
+  /* ---------- App shell ---------- */
+  .app-shell { position: relative; z-index: 1; display: flex; min-height: 100vh; min-height: 100dvh; }
+  .app-nav-slot { flex: none; width: var(--sidebar-w); }
+  .app-sidebar { position: sticky; top: 0; height: 100vh; height: 100dvh; }
+  .app-column { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .app-header {
+    position: sticky; top: 0; z-index: 40;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+    background: rgb(10 11 13 / 0.55);
+    -webkit-backdrop-filter: blur(22px) saturate(170%);
+    backdrop-filter: blur(22px) saturate(170%);
+    border-bottom: 1px solid var(--border-color);
+  }
+  .light .app-header { background: rgb(244 236 221 / 0.72); }
+  .light .app-sidebar { background: rgb(236 224 200 / 0.78); }
+  .app-main { flex: 1; min-width: 0; padding: 1rem max(1rem, env(safe-area-inset-right, 0px)) 1.5rem max(1rem, env(safe-area-inset-left, 0px)); }
+  .app-content { width: 100%; min-width: 0; max-width: 1200px; margin-inline: auto; }
+
+  /* Phones and tablets: room above the docked tab bar */
+  @media (max-width: 1023px) {
+    .app-main { padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px) + 1.5rem); }
+  }
+  @media (min-width: 600px) {
+    .app-main { padding-top: 1.5rem; padding-inline: max(1.5rem, env(safe-area-inset-left, 0px)) max(1.5rem, env(safe-area-inset-right, 0px)); }
+  }
+  @media (min-width: 1024px) {
+    .app-main { padding-inline: max(2rem, env(safe-area-inset-left, 0px)) max(2rem, env(safe-area-inset-right, 0px)); }
+  }
+
+  /* Foldable spanning two screens: nav left, content right, empty hinge column between */
+  @media (horizontal-viewport-segments: 2) {
+    .app-shell {
+      display: grid;
+      grid-template-columns:
+        env(viewport-segment-width 0 0)
+        calc(env(viewport-segment-left 1 0) - env(viewport-segment-right 0 0))
+        minmax(0, 1fr);
+    }
+    .app-nav-slot { grid-column: 1; width: auto; }
+    .app-column { grid-column: 3; }
+  }
+
+  /* ---------- Phone / tablet floating dock (liquid glass) ---------- */
+  .dock {
+    position: fixed; z-index: 40; left: 0; right: 0; margin-inline: auto;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
+    width: min(calc(100vw - 1.5rem), 26rem);
+    padding: 0.375rem; border-radius: 1.75rem; isolation: isolate;
+    background: linear-gradient(150deg, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0.04) 55%), rgb(14 16 20 / 0.68);
+    -webkit-backdrop-filter: blur(26px) saturate(190%);
+    backdrop-filter: blur(26px) saturate(190%);
+    border: 1px solid rgb(255 255 255 / 0.16);
+    box-shadow: 0 18px 40px rgb(0 0 0 / 0.5), inset 0 1px 1px rgb(255 255 255 / 0.35), inset 0 -1px 1px rgb(0 0 0 / 0.35);
+  }
+  .dock::before {
+    content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+    background: linear-gradient(160deg, rgb(255 255 255 / 0.22) 0%, transparent 38%);
+  }
+  .light .dock {
+    background: linear-gradient(150deg, rgb(255 252 244 / 0.94), rgb(244 236 221 / 0.76));
+    border-color: rgb(255 255 255 / 0.85);
+    box-shadow: 0 14px 34px rgb(122 92 40 / 0.22), inset 0 1px 0 #fff;
+  }
+  .light .dock::before { background: linear-gradient(160deg, rgb(255 255 255 / 0.7) 0%, transparent 40%); }
+  @media (min-width: 600px) { .dock { width: min(calc(100vw - 3rem), 30rem); } }
+  .dock ul { display: flex; gap: 0.125rem; list-style: none; margin: 0; padding: 0; }
+  .dock li { flex: 1; display: flex; min-width: 0; }
+  .dock-tab {
+    position: relative; flex: 1; min-width: 0; min-height: 3.25rem;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.125rem;
+    border: 0; border-radius: 1.25rem; background: transparent; text-decoration: none; cursor: pointer;
+    font-size: 0.75rem; line-height: 1rem; font-weight: 600; color: var(--text-secondary);
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  .dock-tab[aria-current='page'], .dock-tab[aria-expanded='true'] {
+    background: var(--active-pill); color: var(--positive-text);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--positive) 30%, transparent), 0 0 18px color-mix(in srgb, var(--positive) 22%, transparent);
+  }
+  .light .dock-tab[aria-current='page'], .light .dock-tab[aria-expanded='true'] { color: var(--text-primary); box-shadow: inset 0 0 0 1px rgb(120 92 40 / 0.16); }
+  .bottom-badge { position: absolute; top: 0.25rem; right: 20%; min-width: 1.125rem; height: 1.125rem; padding: 0 0.25rem; border-radius: 999px; background: var(--positive); color: #07130e; font-size: 0.75rem; line-height: 1.125rem; font-weight: 700; text-align: center; }
+
+  .sheet-backdrop { position: fixed; inset: 0; z-index: 50; background: rgb(0 0 0 / 0.5); border: 0; }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 51; max-width: 36rem; margin: 0 auto;
+    background: var(--bg-card); border: 1px solid var(--border-color); border-bottom: 0;
+    border-radius: 1.5rem 1.5rem 0 0; padding: 0.75rem 0.75rem calc(env(safe-area-inset-bottom, 0px) + 1rem);
+    box-shadow: 0 -20px 50px rgb(0 0 0 / 0.35); outline: none;
+  }
+  .sheet-grip { width: 2.5rem; height: 0.375rem; margin: 0 auto 0.75rem; border-radius: 999px; background: rgb(128 128 128 / 0.35); }
+  .sheet-item {
+    display: flex; align-items: center; gap: 0.75rem; width: 100%; min-height: 3rem; padding: 0 0.75rem;
+    border: 0; border-radius: 0.75rem; background: transparent; text-align: left; text-decoration: none; cursor: pointer;
+    font-size: 1rem; font-weight: 500; color: var(--text-primary);
+  }
+  .sheet-item:hover { background: rgb(128 128 128 / 0.12); }
+  .sheet-item[aria-current='page'] { background: var(--active-pill); }
+
+  /* Tap a small card on a phone -> enlarged view (like an image preview, with a close X) */
+  .card-hit { position: absolute; inset: 0; z-index: 1; border: 0; border-radius: inherit; background: transparent; cursor: pointer; }
+  .card-expand-icon { position: absolute; top: 0.5rem; right: 0.5rem; z-index: 0; opacity: 0.5; pointer-events: none; color: var(--text-muted); }
+  .detail-backdrop { position: fixed; inset: 0; z-index: 70; border: 0; background: rgb(0 0 0 / 0.55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+  .detail {
+    position: fixed; z-index: 71; inset: 0; margin: auto; width: calc(100% - 1.5rem); max-width: 40rem;
+    height: fit-content; max-height: calc(100dvh - 1.5rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    overflow-y: auto; overscroll-behavior: contain; padding: 1rem; border-radius: 1.5rem; outline: none;
+    border: 1px solid var(--border-color); animation: detail-in 0.18s ease-out;
+  }
+  @keyframes detail-in { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+  /* One navigation at a time: no dock on laptops or foldables spanning two screens */
+  @media (min-width: 1024px) { .dock, .sheet, .sheet-backdrop { display: none; } }
+  @media (horizontal-viewport-segments: 2) { .dock, .sheet, .sheet-backdrop { display: none; } }
+
+  /* ---------- Toast ---------- */
+  .toast-region {
+    position: fixed; z-index: 60; pointer-events: none;
+    top: calc(env(safe-area-inset-top, 0px) + var(--toast-top));
+    left: max(0.75rem, env(safe-area-inset-left, 0px));
+    right: max(0.75rem, env(safe-area-inset-right, 0px));
+    display: flex; justify-content: flex-end;
+  }
+  .toast-region > * { pointer-events: auto; width: 100%; max-width: 24rem; }
+
+  /* ---------- Inputs and targets ---------- */
+  .touch-target { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
+  @media (pointer: fine) { .touch-target { min-width: 32px; min-height: 32px; } }
+  .chip { display: inline-flex; align-items: center; min-height: 2.25rem; padding-inline: 0.875rem; border-radius: 999px; font-size: 0.8125rem; font-weight: 600; white-space: nowrap; border: 1px solid var(--border-color); }
+  @media (pointer: coarse) { .chip { min-height: 2.75rem; } }
+  .kbd-hint { display: none; }
+  @media (pointer: fine) { .kbd-hint { display: inline-flex; } }
+
+  /* ---------- Scrollers ---------- */
+  .hscroll { display: flex; gap: 0.5rem; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .hscroll > * { flex: 0 0 auto; scroll-snap-align: start; }
+  .hscroll::-webkit-scrollbar { display: none; }
+  .watch-row { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); }
+  @media (max-width: 599px) { .watch-row { gap: 0.5rem; grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+  /* ---------- Markets dashboard ----------
+     Phone / tablet: one column in this order: hero, sentiment+AI, indicators, watchlist, live, news.
+     Laptop >=1280px: two independent columns, so News sits right under Sentiment+AI (no gap). */
+  .dash-root { display: flex; flex-direction: column; gap: 1rem; }
+  .dash-left, .dash-right { display: contents; }
+  .o-hero { order: 1; } .dash-pair { order: 2; } .o-tech { order: 3; } .o-watch { order: 4; } .o-live { order: 5; } .o-news { order: 6; }
+  .dash-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+  .dash-root > *, .dash-left > *, .dash-right > *, .dash-pair > * { min-width: 0; }
+  @media (max-width: 599px) { .dash-root, .dash-pair { gap: 0.625rem; } }
+  @media (min-width: 1280px) {
+    .dash-root { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(20rem, 1fr); gap: 1.25rem; align-items: start; }
+    .dash-left, .dash-right { display: flex; flex-direction: column; gap: 1.25rem; }
+    .dash-pair { gap: 1.25rem; }
+  }
+  .tech-inner { display: grid; gap: 0.5rem; grid-template-columns: 1.4fr 1fr; }
+  @media (min-width: 600px) { .tech-inner { gap: 0.75rem; } }
+
+  /* ---------- Fallbacks ---------- */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass, .ps-card { background: var(--bg-card); }
+    .glass-bar, .app-header, .dock { background: var(--bg-main); }
+  }
+  @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+    .glass, .ps-card, .glass-bar, .app-header, .dock { -webkit-backdrop-filter: none; backdrop-filter: none; }
+    .glass, .ps-card { background: var(--bg-card); }
+    .glass-bar, .app-header, .dock { background: var(--bg-main); }
+    .app-root::before { display: none; }
+  }
+  @media (max-width: 599px) {
+    .glass, .ps-card { -webkit-backdrop-filter: blur(16px) saturate(160%); backdrop-filter: blur(16px) saturate(160%); }
+  }
+}
+
+/* The app wrapper must be see-through so the ambient colour shows behind the glass.
+   (Unlayered on purpose: it has to beat a bg-* utility on the same element.) */
+.app-root { background-color: transparent !important; min-height: 100vh; min-height: 100dvh; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.2); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.35); }
+
+/* ===== Liquid glass: moving light ===== */
+@layer components {
+  .app-root::before {
+    inset: -8%;
+    animation: ambient-drift 32s ease-in-out infinite alternate;
+    will-change: transform;
+  }
+  @keyframes ambient-drift {
+    from { transform: translate3d(0, 0, 0) scale(1); }
+    to   { transform: translate3d(-2.5%, 2%, 0) scale(1.08); }
+  }
+
+  .ps-hero::after, .dock::after {
+    content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+    background-image: linear-gradient(115deg, transparent 38%, rgb(255 255 255 / 0.20) 49%, rgb(255 255 255 / 0.05) 53%, transparent 64%);
+    background-size: 260% 100%; background-position: 140% 0;
+    animation: glass-sweep 10s ease-in-out infinite;
+  }
+  .dock::after { animation-delay: 2.5s; }
+  .light .ps-hero::after, .light .dock::after {
+    background-image: linear-gradient(115deg, transparent 38%, rgb(255 255 255 / 0.65) 49%, rgb(255 255 255 / 0.15) 53%, transparent 64%);
+  }
+  @keyframes glass-sweep {
+    0%, 55% { background-position: 140% 0; }
+    100%    { background-position: -40% 0; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .app-root::before { animation: none; }
+    .ps-hero::after, .dock::after { animation: none; opacity: 0; }
+  }
+  @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+    .ps-hero::after, .dock::after, .ps-card::after { display: none; }
+  }
+}
+
+/* ===== Bottom bar: sliding liquid-glass lens ===== */
+@layer components {
+  .dock-track { position: relative; }
+
+  .dock-lens {
+    position: absolute; top: 0; bottom: 0; left: 0; width: var(--lens-w, 0px);
+    border-radius: 1.25rem; pointer-events: none;
+    transform: translateX(var(--lens-x, 0px));
+    background:
+      radial-gradient(120% 90% at 50% 0%, rgb(255 255 255 / 0.38), transparent 60%),
+      linear-gradient(160deg, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0.04)),
+      var(--active-pill);
+    box-shadow:
+      inset 0 1px 1px rgb(255 255 255 / 0.55),
+      inset 0 -1px 1px rgb(0 0 0 / 0.25),
+      0 8px 22px color-mix(in srgb, var(--positive) 26%, transparent);
+    transition: transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1), width 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .dock-lens:not([data-ready]) { transition: none; }
+  .dock-lens[data-moving] { animation: lens-stretch 0.55s ease-out; }
+  @keyframes lens-stretch {
+    0%   { scale: 1 1; }
+    35%  { scale: 1.2 0.93; }
+    100% { scale: 1 1; }
+  }
+  .light .dock-lens {
+    background:
+      radial-gradient(120% 90% at 50% 0%, rgb(255 255 255 / 0.9), transparent 60%),
+      linear-gradient(160deg, rgb(255 255 255 / 0.5), rgb(255 255 255 / 0.1)),
+      var(--active-pill);
+    box-shadow: inset 0 1px 0 #fff, 0 6px 16px rgb(122 92 40 / 0.18);
+  }
+
+  .dock-tab[aria-current='page'], .dock-tab[aria-expanded='true'],
+  .light .dock-tab[aria-current='page'], .light .dock-tab[aria-expanded='true'] { background: transparent; box-shadow: none; }
+  .dock-tab { transition: color 0.2s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .dock-tab:active { transform: scale(0.94); }
+  .dock-tab > svg { transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .dock-tab[aria-current='page'] > svg, .dock-tab[aria-expanded='true'] > svg { transform: translateY(-1px) scale(1.12); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dock-lens { transition: none; animation: none; }
+    .dock-tab, .dock-tab > svg { transition: none; }
+    .dock-tab:active { transform: none; }
+  }
+}
+
+@layer components {
+  .msg-body { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+  .msg-line { margin: 0; }
+  .msg-raw {
+    margin: 0.5rem 0; padding: 0.5rem 0.75rem; max-height: 9rem; overflow: auto;
+    border-radius: 0.75rem; border: 1px solid var(--border-color); background: rgb(128 128 128 / 0.10);
+    white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-all;
+    font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--text-secondary);
+  }
+}
+
+@layer components {
+  .float-card {
+    --tx: 0; --ty: 0;
+    position: relative;
+    box-shadow:
+      calc(var(--tx) * -12px) calc(26px + var(--ty) * 6px) 46px -18px rgb(0 0 0 / 0.6),
+      0 10px 22px -10px rgb(0 0 0 / 0.45),
+      inset calc(var(--tx) * 2px) calc(var(--ty) * 2px + 1px) 0 rgb(255 255 255 / 0.22),
+      inset calc(var(--tx) * -1px) calc(var(--ty) * -1px) 1px rgb(255 255 255 / 0.08);
+    transition: box-shadow 0.25s linear;
+  }
+  .light .float-card {
+    box-shadow:
+      calc(var(--tx) * -12px) calc(26px + var(--ty) * 6px) 46px -18px rgb(122 92 40 / 0.30),
+      0 10px 22px -10px rgb(122 92 40 / 0.18),
+      inset calc(var(--tx) * 2px) calc(var(--ty) * 2px + 1px) 0 rgb(255 255 255 / 0.9);
+  }
+  .float-card::after {
+    content: ''; position: absolute; inset: 0; z-index: 0; border-radius: inherit; pointer-events: none;
+    background: radial-gradient(120px circle at calc(18% + var(--tx) * 14%) calc(4% + var(--ty) * 8%), rgb(255 255 255 / 0.16), transparent 70%);
+  }
+  .float-card > * { position: relative; z-index: 1; }
+  .bg-drift { position: fixed; inset: -20%; z-index: -1; pointer-events: none; animation: bg-move 24s ease-in-out infinite alternate; will-change: transform; }
+  @keyframes bg-move {
+    0%   { transform: translate3d(-4%, -2%, 0) scale(1); }
+    50%  { transform: translate3d(3%, 4%, 0) scale(1.06); }
+    100% { transform: translate3d(-2%, 3%, 0) scale(1.02); }
+  }
+  .bg-drift-b { animation-duration: 30s; animation-direction: alternate-reverse; }
+  .bg-drift-c { animation-duration: 36s; }
+  @media (hover: hover) and (pointer: fine) {
+    .float-card { --tx: 0; --ty: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bg-drift, .bg-drift-b, .bg-drift-c { animation: none; }
+    .float-card { transition: none; }
+  }
+  @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+    .float-card::after { display: none; }
+  }
+}

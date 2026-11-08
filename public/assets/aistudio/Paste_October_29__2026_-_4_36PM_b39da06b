@@ -1,0 +1,2556 @@
+# PeekStox: full build prompt (instructions + code)
+
+Copy everything below this line into your AI coding tool.
+
+---
+
+ROLE
+You are a senior front-end engineer and UI designer working on "PeekStox", a stock-market research
+web app: React + TypeScript + Tailwind CSS v4 (`@import "tailwindcss"`), lucide-react, Vite.
+Reference mockups are attached (laptop, tablet, phone; dark and light). Match them closely.
+If this text and an image disagree, the image wins for look; this text wins for behaviour,
+accessibility and data rules.
+
+HOW TO USE THIS PROMPT
+1. The sections under "FILES" contain the complete reference implementation. Create or overwrite
+   each file at exactly the path shown. Edit only those files. Do not rewrite unrelated files.
+2. Keep existing props, data types and API routes. The other screens (Explorer, Compare, Algo Lab,
+   AI, Watchlist, Overview, News, Settings, modals) and `src/components/PeekStoxLogo.tsx` already
+   exist: leave them unchanged. Delete `src/styles/responsive.css` if it exists; `index.css` now
+   contains everything and App.tsx no longer imports it.
+3. The code uses English strings. If the project has a translation function, wrap the labels with
+   it and keep an English fallback. Never render a raw key such as "dashboard" or "algo".
+4. `GlobalIndex.name` and the `NewsItem` fields (title, source, time, image, url) are read
+   defensively in DashboardView. If the project's types differ, adapt minimally and say so.
+5. After applying the files, run the acceptance checks in section 6 and report what you could
+   not verify.
+
+PRODUCT FEEL
+Premium, calm, data-dense but never cluttered. "Liquid glass": frosted translucent surfaces over
+soft coloured light. Dark mode = glowing green and violet on near-black. Light mode = warm cream
+paper with sage green and tan. Both themes must feel like one product.
+
+=====================================================================
+1. NAVIGATION ITEMS (real screens)
+=====================================================================
+Primary: Markets (dashboard), Explorer, Watchlist, Financial News, PeekStox AI (assistant).
+Tools: Compare, Quantitative Lab (algo), Global Overview (overview).
+Account: Market Alerts (opens the alerts modal, shows unread count), Settings, About Us, profile
+card (avatar, name, role). Route ids: dashboard, explorer, compare, algo, assistant, watchlist,
+overview, news, settings, about.
+
+=====================================================================
+2. HOW THE LAYOUT ADAPTS (by available width, never by device name)
+=====================================================================
+Window classes (detect with matchMedia change events, not resize spam):
+  compact  <600px        phones, foldable cover screen
+  medium   600-1023px    tablet portrait, unfolded foldable, small windows
+  expanded >=1024px      laptops, desktops, tablet landscape
+  extra    >=1280px      Markets switches to two independent columns
+Rules that always hold:
+- Exactly ONE primary navigation at a time: floating dock (compact, medium) OR left sidebar
+  (expanded, or foldable spanning two screens). Never both. CSS also hides the dock at >=1024px
+  as a safeguard.
+- Respect safe-area insets (top, bottom, left, right). The viewport meta tag needs
+  `viewport-fit=cover`.
+- Page gutter 16 / 24 / 32px (compact / medium / expanded). Card radius 20px, inner tiles 12px,
+  pills fully round. Content max width 1200px, centred.
+- Type: page title 20/24/28px bold; hero number 30/36/48px bold with tabular numerals; card label
+  12px uppercase letter-spaced; body 14px; nothing below 12px.
+- NEVER hide a layout bug with overflow-x:hidden. At 360-430px nothing may scroll sideways; fix
+  the cause (min-w-0 on flex/grid children, fixed widths, wide rows).
+- Header is sticky, translucent glass, 56-64px tall. Sidebar is sticky, full height.
+
+---------------------------------------------------------------------
+2A. PHONE (360-599px, portrait): single column, compact cards
+---------------------------------------------------------------------
+Header: brand mark (hidden under 380px) + page title left; 44px icon buttons for Search and
+Alerts; a small "Live" chip (dot + word, no refresh icon); avatar button. No full search field, no
+price strip, no theme button (theme lives in Settings).
+
+FLOATING LIQUID-GLASS DOCK (not a docked full-width bar):
+- Fixed, centred, floating above the bottom edge: bottom = safe-area-inset-bottom + 12px;
+  width = min(100vw - 24px, 416px); radius 28px; padding 6px.
+- Glass: dark = white gradient overlay + rgb(14 16 20 / .68), blur(26px) saturate(190%), 1px
+  border rgb(255 255 255 / .16), bright inset top rim, soft sheen, deep shadow. Light = ivory
+  gradient rgb(255 252 244 / .94) to rgb(244 236 221 / .76), white border, warm shadow. It must
+  be opaque enough that page text never shows through or collides with the labels.
+- Five items, icon above a 12px label, each at least 52px tall: Markets, Explorer, Watchlist,
+  AI, More. Active item = tinted pill with a soft glow (dark: green tint; light: tan tint
+  rgb(120 92 40 / .13)), aria-current="page". Items are real links (#/view).
+- "More" opens a bottom sheet (role=dialog, aria-modal, Esc closes, Tab trapped, focus returns to
+  More) listing Compare, Quantitative Lab, Global Overview, Financial News, Settings, About Us,
+  Market Alerts (with unread count). Unread badge on More.
+- Page content gets bottom padding = dock height + offset + safe area, so nothing hides behind it.
+
+COMPACT MARKETS SCREEN (goal: about 1.5 screens tall, like the phone mockup). Order:
+  1. Hero card (padding 12px): label, index name, glowing change pill, 30px level number, chart
+     only ~80px tall with glowing end dot. Benchmark chips are hidden here (they live in the
+     enlarged view).
+  2. Two cards side by side: Market Sentiment (small gauge, "17 of 48 up") | AI Analyst (36px orb
+     + 4 lines of 12px text). No "Ask AI" link here.
+  3. Technical Indicators: left a 2x2 grid of tiny tiles (short labels RSI, MACD, MA, BB under
+     420px; mini chart 24px; value; state word is screen-reader-only), right a "Trend" tile with a
+     dotted projection, a change pill and the words "Not advice".
+  4. Watchlist: exactly 3 cards in one row (ticker, price, change stacked; 20px sparkline).
+  5. Live Activity: ONE single-line glass pill, truncated, no extra buttons.
+  6. News: 3 compact rows (40px thumbnail, 2-line headline, source and time).
+TAP TO ENLARGE (phones only): every small card (hero, sentiment, AI, each indicator tile, trend
+tile, watchlist stock, news row) opens an enlarged view, like an image preview:
+- Implement with a stretched invisible button over the card (aria-label "Expand <name>",
+  aria-haspopup="dialog") plus a small expand icon in the corner; interactive children stay
+  clickable above it.
+- Enlarged view = centred glass panel (width 100% - 24px, max 640px, height fit-content, scroll
+  inside if tall), blurred dimmed backdrop, title, a 44px close X top-right, scale-in animation
+  (180ms, disabled for reduced motion). Esc, backdrop tap and X all close it. Render through a
+  portal to <body> so the dock can never sit on top of it. Lock body scroll while open, trap
+  focus, restore focus to the opener on close.
+- Contents: Hero = big level, pill, 208px chart, day high/low, status, updated time, and the
+  benchmark chips. Sentiment = full gauge, the rule (above 60% Bullish, below 40% Bearish), top 3
+  gainers and top 3 decliners. AI = larger orb, full summary built from numbers (breadth, biggest
+  mover, leading and lagging sector), "Ask PeekStox AI" button. Indicator = big value, state,
+  larger chart, plain-language explanation, and how many data points are needed if not ready.
+  Trend = bigger chart with dotted projection and the not-a-forecast note. Stock = price, change,
+  chart, day/52-week high and low, volume, exchange, "Open in Explorer". News = image, headline,
+  source/time, "Read article" if a URL exists.
+- On tablet and laptop, cards do NOT pop open (watchlist items navigate to Explorer, news items
+  are links).
+
+---------------------------------------------------------------------
+2B. FOLDABLES
+---------------------------------------------------------------------
+- Cover screen (closed): identical to Phone.
+- Unfolded flat (about 600-840px wide): Tablet-portrait layout with the floating dock.
+- Spanning two screens (vertical hinge, media query `(horizontal-viewport-segments: 2)`): left
+  screen = sidebar navigation, right screen = the Markets column laid out as one column. Use a CSS
+  grid with columns `env(viewport-segment-width 0 0)`, a gutter of exactly
+  `calc(env(viewport-segment-left 1 0) - env(viewport-segment-right 0 0))`, then `1fr`. Nothing
+  crosses the hinge; modals, toasts and enlarged views open inside one screen. The dock is hidden.
+- Optional: tabletop posture (`device-posture: folded`) = dashboard on the upper half, news on the
+  lower half. Browsers without these APIs simply use the width-based layouts.
+
+---------------------------------------------------------------------
+2C. TABLET
+---------------------------------------------------------------------
+Portrait (600-1023px): same floating dock (width min(100vw - 48px, 480px)), 24px gutters, header
+with title + search field (max 448px) + Live chip + alerts + theme button, and a slim live price
+strip (indices + top stocks, horizontally scrollable, NO auto-moving marquee). One column: hero
+full width; Sentiment | AI side by side; Technical Indicators | Trend; Watchlist as a 3-6 card
+grid; Live Activity; News. Landscape (>=1024px): sidebar layout from 2D. Touch targets 44px+.
+
+---------------------------------------------------------------------
+2D. LAPTOP / DESKTOP (>=1024px)
+---------------------------------------------------------------------
+Left sidebar 256px, translucent glass: brand slot at top, Primary list, "TOOLS" heading and list,
+divider, Market Alerts (badge), Settings, About, then the profile card pinned at the bottom. Active
+item = rounded highlighted pill. Header (sticky, in the content column): page title; search field
+320-420px with a Cmd/Ctrl+K hint (fine pointers only); Live chip; bell; theme toggle; and the live
+price strip under it.
+1024-1279px: one column in the phone order, with Sentiment | AI side by side.
+>=1280px: TWO INDEPENDENT COLUMNS (grid 1.7fr / 1fr, right column at least 320px, align start):
+  Left:  hero, then Technical Indicators + Trend, then Watchlist (3 across), then Live Activity.
+  Right: [Sentiment | AI Analyst] side by side, then News DIRECTLY BELOW them.
+Each column stacks on its own (flex column), so there is NO empty gap between the Sentiment/AI
+pair and News. Do not put both columns in one shared grid with row areas. Card headers use flex
+with justify-between and a gap so "NEWS" and "All news" never touch. Hover = subtle brightness
+lift; focus = visible 2px ring.
+
+=====================================================================
+3. VISUAL SYSTEM
+=====================================================================
+Define every colour once as CSS variables in index.css (`:root` = dark, `.light` = light) and use
+ONLY these tokens in components. Never hard-code emerald/green/rose/red/gray/slate/zinc, bg-white
+or text-black in components. (In Tailwind v4, as a safety net, also remap --color-emerald-300..700,
+--color-green-*, --color-rose-*, --color-red-* inside `.light` so any leftover utility follows the
+light palette.)
+
+| token            | dark                     | light (warm cream)        |
+|------------------|--------------------------|---------------------------|
+| --bg-main        | #0A0B0D                  | #F4ECDD                   |
+| --bg-card        | #121417 (solid fallback) | #FBF7EE                   |
+| --border-color   | rgb(255 255 255 / .10)   | rgb(120 92 40 / .16)      |
+| --text-primary   | #F2F3F5                  | #2A241C                   |
+| --text-secondary | #A8B0BA                  | #5F5546                   |
+| --text-muted     | #8A93A0                  | #6E6451                   |
+| --positive       | #34E5A0                  | #2A6F3E (sage)            |
+| --positive-soft  | rgb(52 229 160 / .16)    | rgb(143 196 140 / .38)    |
+| --negative       | #FF6B6B                  | #B4453F (terracotta)      |
+| --negative-soft  | rgb(255 107 107 / .16)   | rgb(214 134 120 / .28)    |
+| --active-pill    | rgb(52 229 160 / .15)    | rgb(120 92 40 / .13) tan  |
+
+Light contrast on the card: secondary 6.8:1, muted 5.4:1, green 5.7:1, terracotta 5.1:1.
+Light mode must contain no mint or cyan and no pure-white surfaces: sidebar, header, cards, chips,
+badges, pills, gauge track, hover states and the dock all come from tokens.
+
+AMBIENT LIGHT behind everything (glass needs colour behind it; the app wrapper must be transparent
+so it shows):
+- dark: emerald rgb(16 185 129 / .32) top-left, violet rgb(139 92 246 / .30) top-right, teal
+  rgb(6 182 212 / .20) bottom.
+- light: gold rgb(232 190 110 / .30), sage rgb(150 200 150 / .24), peach rgb(240 180 150 / .20).
+LIQUID GLASS CARD: dark = white gradient overlay + rgb(14 16 20 / .62), backdrop-filter
+blur(22px) saturate(170%), 1px token border, bright inset top rim, sheen via ::before, deep soft
+shadow. Light = ivory gradient rgb(255 252 244 / .94) to rgb(251 246 234 / .72) with warm shadow
+rgb(122 92 40 / .10). Do not nest glass: inner tiles are flat translucent fills. Lighter blur
+(16px) on phones.
+HERO CARD (same in up and down markets): dark = teal-green wash rgb(20 210 150 / .50) top-left to
+violet rgb(124 77 255 / .62) bottom-right over a diagonal gradient. Light = pale gold glow top-right
++ sage glow bottom-left on ivory. The chart line glows (drop-shadow) with an end dot.
+CHANGE PILLS: glowing mint (up) / rose (down) in dark; sage / terracotta, no glow, in light.
+AI ORB: dark = glossy cyan sphere with a white specular highlight and glow. Light = pearly gold
+sphere. Gauge: semicircle, red to amber to green.
+FALLBACKS: solid panels for prefers-reduced-transparency, prefers-contrast: more, and browsers
+without backdrop-filter.
+Font Plus Jakarta Sans. Tabular numerals for prices. SVG icons, no emoji. Colour is never the only
+signal: pair up/down with an arrow and screen-reader text.
+Theme: follow the OS until the user chooses; persist the choice; set the theme-color meta (#0A0B0D
+dark, #F4ECDD light) and color-scheme on <html>.
+CSS ARCHITECTURE: component classes live in `@layer components` so Tailwind utilities can override
+them. Every class used by a component must exist (no references to undefined classes such as
+liquid-glass-dock). Do not leave a second stylesheet that redefines the same tokens.
+
+=====================================================================
+4. MARKETS SCREEN DATA RULES
+=====================================================================
+- Hero: index level in POINTS (no currency sign, no "$" tooltip on the chart), signed change with a
+  real minus sign ("-0.18%", never "+-0.18%"), chips to switch index.
+- Sentiment = percent of tracked stocks that are up today (>60 Bullish, <40 Bearish, else Neutral).
+- AI Analyst text is generated only from live numbers (breadth, biggest mover, sector averages).
+  Never invent claims, probabilities, prices or news.
+- Indicators (RSI, MACD, Moving Avg, Bollinger) are computed from the price series. Show "Needs
+  more data" when too short: RSI needs 15+ points, MACD 26+, average and bands 10+. Never show a
+  misleading value such as "RSI 100 Overbought" from a short series.
+- Trend projection = straight-line extension of the recent trend, labelled "Not a forecast or
+  advice".
+- News thumbnails only when the data has an image field.
+
+=====================================================================
+5. BEHAVIOUR, ACCESSIBILITY, PERFORMANCE
+=====================================================================
+- URL-hash routing (#/explorer/AAPL): Back/Forward and shared links work. After a screen change
+  reset scroll and move focus to <main>. Skip-to-content link that does not break the router.
+- Touch targets 44px on touch screens (32px with a mouse). Visible focus rings. aria-labels on every
+  icon-only button. Respect prefers-reduced-motion. No auto-moving content.
+- Toasts: polite live region, one timer per toast id (an old timer must never dismiss a new toast),
+  pause on hover/focus, Escape closes, severity shown by icon + text, not colour alone.
+- Poll live quotes every 15s but pause while the tab is hidden. Alert checks must read the latest
+  user state through a ref (no stale closure over currentUser). Reuse one AudioContext for chimes.
+- Handle localStorage failures with try/catch.
+
+=====================================================================
+6. ACCEPTANCE CHECKS (run these after applying the files)
+=====================================================================
+Verify at widths 360, 390, 600, 768, 1024, 1280, 1366, 1440, 1920, in dark and light, keyboard only,
+with reduced motion, and in dual-screen/foldable emulation. Confirm:
+- Phone 390px: no horizontal scroll; floating glass dock with Markets/Explorer/Watchlist/AI/More;
+  the Markets screen is about 1.5 screens tall; every small card opens an enlarged view with a
+  close X; the dock never overlaps content or an enlarged view.
+- Laptop 1366px: News sits directly under Sentiment + AI with no empty gap; News is at least 300px
+  wide; "NEWS" and "All news" are separated; sidebar present, no dock.
+- Light mode: cream page, ivory cards, tan active pill, sage/terracotta status colours, no mint
+  anywhere; toggling theme changes every surface.
+- Text never below 12px; one navigation at a time; nothing crosses the hinge; no raw translation
+  keys shown; RSI/MACD/MA/Bollinger say "Needs more data" when the series is too short.
+Report what you verified and what you could not.
+
+=====================================================================
+FILES (reference implementation: create or overwrite each at the exact path)
+=====================================================================
+
+### FILE: src/index.css
+Global styles: tokens for both themes, liquid glass, app shell, floating dock, enlarged-view overlay, dashboard columns.
+
+```css
+@import "tailwindcss";
+
+/* =====================================================================
+   PeekStox global styles (Tailwind v4)
+   One file: tokens, light/dark themes, liquid glass, app shell, bottom bar.
+   If you still import styles/responsive.css anywhere, delete that import.
+   ===================================================================== */
+
+@layer base {
+  :root {
+    /* ---- Dark theme (default) ---- */
+    --bg-main: #0A0B0D;
+    --bg-card: #121417;
+    --bg-card-hover: #1A1D21;
+    --bg-surface-raised: #1A1D21;
+    --subtle-fill: #1A1D21;
+    --border-color: rgb(255 255 255 / 0.10);
+    --border-hover: rgb(255 255 255 / 0.18);
+    --text-primary: #F2F3F5;
+    --text-secondary: #A8B0BA;
+    --text-tertiary: #8A93A0;
+    --text-muted: #8A93A0;
+    --accent-mint: #34E5A0;
+    --accent-mint-glow: rgba(52, 229, 160, 0.12);
+    --accent-text: #34E5A0;
+    --accent-soft: rgba(52, 229, 160, 0.12);
+    --positive: #34E5A0;
+    --positive-text: #34E5A0;
+    --positive-soft: rgba(52, 229, 160, 0.16);
+    --accent-red: #FF6B6B;
+    --negative: #FF6B6B;
+    --negative-soft: rgba(255, 107, 107, 0.16);
+    --accent-ai: #8b5cf6;
+    --active-pill: rgb(52 229 160 / 0.15);
+    --ps-border: var(--border-color);
+    --ps-focus: #34E5A0;
+
+    /* layout */
+    --sidebar-w: 16rem;
+    --bottom-nav-h: 5.5rem; /* floating dock + its offset from the edge */
+    --toast-top: 5rem;
+  }
+
+  .light {
+    /* ---- Light theme: warm cream, sage green, terracotta ----
+       Contrast on the card (#FBF7EE): secondary 6.8:1, muted 5.4:1,
+       green 5.7:1, terracotta 5.1:1. */
+    --bg-main: #F4ECDD;
+    --bg-card: #FBF7EE;
+    --bg-card-hover: #F3EBDA;
+    --bg-surface-raised: #F3EBDA;
+    --subtle-fill: #EFE6D2;
+    --border-color: rgb(120 92 40 / 0.16);
+    --border-hover: rgb(120 92 40 / 0.28);
+    --text-primary: #2A241C;
+    --text-secondary: #5F5546;
+    --text-tertiary: #6E6451;
+    --text-muted: #6E6451;
+    --accent-mint: #2A6F3E;
+    --accent-mint-glow: rgb(42 111 62 / 0.15);
+    --accent-text: #2A6F3E;
+    --accent-soft: rgb(143 196 140 / 0.38);
+    --positive: #2A6F3E;
+    --positive-text: #1F5A32;
+    --positive-soft: rgb(143 196 140 / 0.38);
+    --accent-red: #B4453F;
+    --negative: #B4453F;
+    --negative-soft: rgb(214 134 120 / 0.28);
+    --accent-ai: #8A6A2B;
+    --active-pill: rgb(120 92 40 / 0.13);
+    --ps-focus: #2A6F3E;
+
+    /* Any component that hard-codes Tailwind emerald / green / rose / red
+       now follows the light palette instead of showing mint. */
+    --color-emerald-300: #5E9B6B;
+    --color-emerald-400: #2A6F3E;
+    --color-emerald-500: #4E9A5E;
+    --color-emerald-600: #2A6F3E;
+    --color-emerald-700: #1F5A32;
+    --color-green-400: #2A6F3E;
+    --color-green-500: #4E9A5E;
+    --color-green-600: #2A6F3E;
+    --color-rose-400: #B4453F;
+    --color-rose-500: #C9605A;
+    --color-rose-600: #B4453F;
+    --color-red-400: #B4453F;
+    --color-red-500: #C9605A;
+    --color-red-600: #B4453F;
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    overflow-x: hidden;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+  html { scroll-behavior: smooth; }
+  :focus-visible { outline: 2px solid var(--ps-focus); outline-offset: 2px; }
+}
+
+@layer components {
+  /* ---------- Status colours (follow the theme tokens) ---------- */
+  .tone-up   { color: var(--positive); }
+  .tone-down { color: var(--negative); }
+  .tone-info { color: #38bdf8; }
+  .light .tone-info { color: #1F6A8A; }
+  .tone-chip { background-color: rgb(128 128 128 / 0.16); }
+
+  /* ---------- Ambient colour behind the glass ---------- */
+  .app-root::before {
+    content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(55% 45% at 8% 6%,    rgb(16 185 129 / 0.32), transparent 70%),
+      radial-gradient(50% 45% at 96% 10%,  rgb(139 92 246 / 0.30), transparent 70%),
+      radial-gradient(60% 50% at 70% 100%, rgb(6 182 212 / 0.20),  transparent 70%);
+  }
+  .light .app-root::before {
+    background:
+      radial-gradient(55% 45% at 8% 6%,    rgb(232 190 110 / 0.30), transparent 70%),
+      radial-gradient(50% 45% at 96% 10%,  rgb(150 200 150 / 0.24), transparent 70%),
+      radial-gradient(60% 50% at 70% 100%, rgb(240 180 150 / 0.20), transparent 70%);
+  }
+
+  /* ---------- Liquid glass ---------- */
+  .glass, .ps-card {
+    position: relative; isolation: isolate;
+    background: linear-gradient(150deg, rgb(255 255 255 / 0.09), rgb(255 255 255 / 0.03) 60%), rgb(14 16 20 / 0.62);
+    -webkit-backdrop-filter: blur(22px) saturate(170%);
+    backdrop-filter: blur(22px) saturate(170%);
+    box-shadow:
+      0 20px 40px -10px rgb(0 0 0 / 0.6),
+      0 4px 12px -2px rgb(0 0 0 / 0.35),
+      inset 0 1px 1.5px 0 rgb(255 255 255 / 0.20),
+      inset 0 -1px 1px 0 rgb(0 0 0 / 0.35);
+  }
+  .ps-card { border: 1px solid var(--border-color); border-radius: 1.25rem; }
+  .glass::before, .ps-card::before {
+    content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+    background: linear-gradient(155deg, rgb(255 255 255 / 0.15) 0%, transparent 34%);
+  }
+  .light .glass, .light .ps-card {
+    background: linear-gradient(150deg, rgb(255 252 244 / 0.94), rgb(251 246 234 / 0.72));
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9), 0 10px 28px rgb(122 92 40 / 0.10);
+  }
+  .light .glass::before, .light .ps-card::before { background: linear-gradient(155deg, rgb(255 255 255 / 0.6), transparent 40%); }
+
+  .glass-bar {
+    background: rgb(10 11 13 / 0.55);
+    -webkit-backdrop-filter: blur(24px) saturate(170%);
+    backdrop-filter: blur(24px) saturate(170%);
+  }
+  .light .glass-bar { background: rgb(244 236 221 / 0.72); }
+
+  .tile { background: rgb(255 255 255 / 0.05); border: 1px solid rgb(255 255 255 / 0.08); border-radius: 0.75rem; }
+  .light .tile { background: rgb(120 92 40 / 0.06); border-color: rgb(120 92 40 / 0.10); }
+
+  /* Hero card: brand glow, identical in up and down markets */
+  .ps-hero {
+    background:
+      radial-gradient(90% 120% at 0% 0%,     rgb(20 210 150 / 0.50), transparent 60%),
+      radial-gradient(90% 130% at 100% 100%, rgb(124 77 255 / 0.62), transparent 60%),
+      linear-gradient(125deg, rgb(10 90 70 / 0.55), rgb(40 40 90 / 0.35) 55%, rgb(70 40 150 / 0.55)),
+      rgb(14 16 20 / 0.55);
+  }
+  .light .ps-hero {
+    background:
+      radial-gradient(85% 120% at 100% 0%, rgb(232 196 120 / 0.48), transparent 62%),
+      radial-gradient(85% 130% at 0% 100%, rgb(160 205 150 / 0.38), transparent 62%),
+      linear-gradient(150deg, rgb(255 252 244 / 0.94), rgb(251 246 234 / 0.72));
+  }
+
+  .pill-up, .pill-down { border: 1px solid; }
+  .pill-up   { color: var(--positive); background: var(--positive-soft); border-color: color-mix(in srgb, var(--positive) 45%, transparent); box-shadow: 0 0 18px color-mix(in srgb, var(--positive) 30%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.18); }
+  .pill-down { color: var(--negative); background: var(--negative-soft); border-color: color-mix(in srgb, var(--negative) 45%, transparent); box-shadow: 0 0 18px color-mix(in srgb, var(--negative) 28%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.18); }
+  .light .pill-up   { color: var(--positive-text); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.7); }
+  .light .pill-down { color: #8F2F2B;               box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.7); }
+
+  .live-chip { border: 1px solid color-mix(in srgb, var(--positive) 35%, transparent); background: var(--positive-soft); color: var(--positive); }
+  .light .live-chip { color: var(--positive-text); }
+
+  .ps-orb {
+    border-radius: 999px;
+    background:
+      radial-gradient(circle at 30% 25%, rgb(255 255 255 / 0.95) 0, rgb(255 255 255 / 0) 22%),
+      radial-gradient(circle at 50% 58%, #67e8f9 0%, #22d3ee 38%, #3b82f6 72%, #6d28d9 100%);
+    box-shadow: 0 0 30px rgb(34 211 238 / 0.45), inset -6px -8px 14px rgb(30 27 75 / 0.35);
+  }
+  .light .ps-orb {
+    background:
+      radial-gradient(circle at 30% 25%, #fff 0, rgb(255 255 255 / 0) 24%),
+      radial-gradient(circle at 50% 58%, #F6E7C1 0%, #E9CF94 45%, #C9A65B 100%);
+    box-shadow: 0 0 22px rgb(214 175 90 / 0.45), inset -6px -8px 14px rgb(120 90 40 / 0.25);
+  }
+
+  /* ---------- App shell ---------- */
+  .app-shell { position: relative; z-index: 1; display: flex; min-height: 100vh; min-height: 100dvh; }
+  .app-nav-slot { flex: none; width: var(--sidebar-w); }
+  .app-sidebar { position: sticky; top: 0; height: 100vh; height: 100dvh; }
+  .app-column { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .app-header {
+    position: sticky; top: 0; z-index: 40;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+    background: rgb(10 11 13 / 0.55);
+    -webkit-backdrop-filter: blur(22px) saturate(170%);
+    backdrop-filter: blur(22px) saturate(170%);
+    border-bottom: 1px solid var(--border-color);
+  }
+  .light .app-header { background: rgb(244 236 221 / 0.72); }
+  .light .app-sidebar { background: rgb(236 224 200 / 0.78); }
+  .app-main { flex: 1; min-width: 0; padding: 1rem max(1rem, env(safe-area-inset-right, 0px)) 1.5rem max(1rem, env(safe-area-inset-left, 0px)); }
+  .app-content { width: 100%; min-width: 0; max-width: 1200px; margin-inline: auto; }
+
+  /* Phones and tablets: room above the docked tab bar */
+  @media (max-width: 1023px) {
+    .app-main { padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px) + 1.5rem); }
+  }
+  @media (min-width: 600px) {
+    .app-main { padding-top: 1.5rem; padding-inline: max(1.5rem, env(safe-area-inset-left, 0px)) max(1.5rem, env(safe-area-inset-right, 0px)); }
+  }
+  @media (min-width: 1024px) {
+    .app-main { padding-inline: max(2rem, env(safe-area-inset-left, 0px)) max(2rem, env(safe-area-inset-right, 0px)); }
+  }
+
+  /* Foldable spanning two screens: nav left, content right, empty hinge column between */
+  @media (horizontal-viewport-segments: 2) {
+    .app-shell {
+      display: grid;
+      grid-template-columns:
+        env(viewport-segment-width 0 0)
+        calc(env(viewport-segment-left 1 0) - env(viewport-segment-right 0 0))
+        minmax(0, 1fr);
+    }
+    .app-nav-slot { grid-column: 1; width: auto; }
+    .app-column { grid-column: 3; }
+  }
+
+  /* ---------- Phone / tablet floating dock (liquid glass) ---------- */
+  .dock {
+    position: fixed; z-index: 40; left: 0; right: 0; margin-inline: auto;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
+    width: min(calc(100vw - 1.5rem), 26rem);
+    padding: 0.375rem; border-radius: 1.75rem; isolation: isolate;
+    background: linear-gradient(150deg, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0.04) 55%), rgb(14 16 20 / 0.68);
+    -webkit-backdrop-filter: blur(26px) saturate(190%);
+    backdrop-filter: blur(26px) saturate(190%);
+    border: 1px solid rgb(255 255 255 / 0.16);
+    box-shadow: 0 18px 40px rgb(0 0 0 / 0.5), inset 0 1px 1px rgb(255 255 255 / 0.35), inset 0 -1px 1px rgb(0 0 0 / 0.35);
+  }
+  .dock::before {
+    content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+    background: linear-gradient(160deg, rgb(255 255 255 / 0.22) 0%, transparent 38%);
+  }
+  .light .dock {
+    background: linear-gradient(150deg, rgb(255 252 244 / 0.94), rgb(244 236 221 / 0.76));
+    border-color: rgb(255 255 255 / 0.85);
+    box-shadow: 0 14px 34px rgb(122 92 40 / 0.22), inset 0 1px 0 #fff;
+  }
+  .light .dock::before { background: linear-gradient(160deg, rgb(255 255 255 / 0.7) 0%, transparent 40%); }
+  @media (min-width: 600px) { .dock { width: min(calc(100vw - 3rem), 30rem); } }
+  .dock ul { display: flex; gap: 0.125rem; list-style: none; margin: 0; padding: 0; }
+  .dock li { flex: 1; display: flex; min-width: 0; }
+  .dock-tab {
+    position: relative; flex: 1; min-width: 0; min-height: 3.25rem;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.125rem;
+    border: 0; border-radius: 1.25rem; background: transparent; text-decoration: none; cursor: pointer;
+    font-size: 0.75rem; line-height: 1rem; font-weight: 600; color: var(--text-secondary);
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  .dock-tab[aria-current='page'], .dock-tab[aria-expanded='true'] {
+    background: var(--active-pill); color: var(--positive-text);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--positive) 30%, transparent), 0 0 18px color-mix(in srgb, var(--positive) 22%, transparent);
+  }
+  .light .dock-tab[aria-current='page'], .light .dock-tab[aria-expanded='true'] { color: var(--text-primary); box-shadow: inset 0 0 0 1px rgb(120 92 40 / 0.16); }
+  .bottom-badge { position: absolute; top: 0.25rem; right: 20%; min-width: 1.125rem; height: 1.125rem; padding: 0 0.25rem; border-radius: 999px; background: var(--positive); color: #07130e; font-size: 0.75rem; line-height: 1.125rem; font-weight: 700; text-align: center; }
+
+  .sheet-backdrop { position: fixed; inset: 0; z-index: 50; background: rgb(0 0 0 / 0.5); border: 0; }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 51; max-width: 36rem; margin: 0 auto;
+    background: var(--bg-card); border: 1px solid var(--border-color); border-bottom: 0;
+    border-radius: 1.5rem 1.5rem 0 0; padding: 0.75rem 0.75rem calc(env(safe-area-inset-bottom, 0px) + 1rem);
+    box-shadow: 0 -20px 50px rgb(0 0 0 / 0.35); outline: none;
+  }
+  .sheet-grip { width: 2.5rem; height: 0.375rem; margin: 0 auto 0.75rem; border-radius: 999px; background: rgb(128 128 128 / 0.35); }
+  .sheet-item {
+    display: flex; align-items: center; gap: 0.75rem; width: 100%; min-height: 3rem; padding: 0 0.75rem;
+    border: 0; border-radius: 0.75rem; background: transparent; text-align: left; text-decoration: none; cursor: pointer;
+    font-size: 1rem; font-weight: 500; color: var(--text-primary);
+  }
+  .sheet-item:hover { background: rgb(128 128 128 / 0.12); }
+  .sheet-item[aria-current='page'] { background: var(--active-pill); }
+
+  /* Tap a small card on a phone -> enlarged view (like an image preview, with a close X) */
+  .card-hit { position: absolute; inset: 0; z-index: 1; border: 0; border-radius: inherit; background: transparent; cursor: pointer; }
+  .card-expand-icon { position: absolute; top: 0.5rem; right: 0.5rem; z-index: 0; opacity: 0.5; pointer-events: none; color: var(--text-muted); }
+  .detail-backdrop { position: fixed; inset: 0; z-index: 70; border: 0; background: rgb(0 0 0 / 0.55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+  .detail {
+    position: fixed; z-index: 71; inset: 0; margin: auto; width: calc(100% - 1.5rem); max-width: 40rem;
+    height: fit-content; max-height: calc(100dvh - 1.5rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    overflow-y: auto; overscroll-behavior: contain; padding: 1rem; border-radius: 1.5rem; outline: none;
+    border: 1px solid var(--border-color); animation: detail-in 0.18s ease-out;
+  }
+  @keyframes detail-in { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+  /* One navigation at a time: no dock on laptops or foldables spanning two screens */
+  @media (min-width: 1024px) { .dock, .sheet, .sheet-backdrop { display: none; } }
+  @media (horizontal-viewport-segments: 2) { .dock, .sheet, .sheet-backdrop { display: none; } }
+
+  /* ---------- Toast ---------- */
+  .toast-region {
+    position: fixed; z-index: 60; pointer-events: none;
+    top: calc(env(safe-area-inset-top, 0px) + var(--toast-top));
+    left: max(0.75rem, env(safe-area-inset-left, 0px));
+    right: max(0.75rem, env(safe-area-inset-right, 0px));
+    display: flex; justify-content: flex-end;
+  }
+  .toast-region > * { pointer-events: auto; width: 100%; max-width: 24rem; }
+
+  /* ---------- Inputs and targets ---------- */
+  .touch-target { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
+  @media (pointer: fine) { .touch-target { min-width: 32px; min-height: 32px; } }
+  .chip { display: inline-flex; align-items: center; min-height: 2.25rem; padding-inline: 0.875rem; border-radius: 999px; font-size: 0.8125rem; font-weight: 600; white-space: nowrap; border: 1px solid var(--border-color); }
+  @media (pointer: coarse) { .chip { min-height: 2.75rem; } }
+  .kbd-hint { display: none; }
+  @media (pointer: fine) { .kbd-hint { display: inline-flex; } }
+
+  /* ---------- Scrollers ---------- */
+  .hscroll { display: flex; gap: 0.5rem; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .hscroll > * { flex: 0 0 auto; scroll-snap-align: start; }
+  .hscroll::-webkit-scrollbar { display: none; }
+  .watch-row { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); }
+  @media (max-width: 599px) { .watch-row { gap: 0.5rem; grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+  /* ---------- Markets dashboard ----------
+     Phone / tablet: one column in this order: hero, sentiment+AI, indicators, watchlist, live, news.
+     Laptop >=1280px: two independent columns, so News sits right under Sentiment+AI (no gap). */
+  .dash-root { display: flex; flex-direction: column; gap: 1rem; }
+  .dash-left, .dash-right { display: contents; }
+  .o-hero { order: 1; } .dash-pair { order: 2; } .o-tech { order: 3; } .o-watch { order: 4; } .o-live { order: 5; } .o-news { order: 6; }
+  .dash-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+  .dash-root > *, .dash-left > *, .dash-right > *, .dash-pair > * { min-width: 0; }
+  @media (max-width: 599px) { .dash-root, .dash-pair { gap: 0.625rem; } }
+  @media (min-width: 1280px) {
+    .dash-root { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(20rem, 1fr); gap: 1.25rem; align-items: start; }
+    .dash-left, .dash-right { display: flex; flex-direction: column; gap: 1.25rem; }
+    .dash-pair { gap: 1.25rem; }
+  }
+  .tech-inner { display: grid; gap: 0.5rem; grid-template-columns: 1.4fr 1fr; }
+  @media (min-width: 600px) { .tech-inner { gap: 0.75rem; } }
+
+  /* ---------- Fallbacks ---------- */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass, .ps-card { background: var(--bg-card); }
+    .glass-bar, .app-header, .dock { background: var(--bg-main); }
+  }
+  @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+    .glass, .ps-card, .glass-bar, .app-header, .dock { -webkit-backdrop-filter: none; backdrop-filter: none; }
+    .glass, .ps-card { background: var(--bg-card); }
+    .glass-bar, .app-header, .dock { background: var(--bg-main); }
+    .app-root::before { display: none; }
+  }
+  @media (max-width: 599px) {
+    .glass, .ps-card { -webkit-backdrop-filter: blur(16px) saturate(160%); backdrop-filter: blur(16px) saturate(160%); }
+  }
+}
+
+/* The app wrapper must be see-through so the ambient colour shows behind the glass.
+   (Unlayered on purpose: it has to beat a bg-* utility on the same element.) */
+.app-root { background-color: transparent !important; min-height: 100vh; min-height: 100dvh; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.2); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.35); }
+```
+
+### FILE: src/hooks/useDeviceLayout.ts
+Detects compact / medium / expanded and foldable spanning; decides sidebar vs dock.
+
+```ts
+import { useEffect, useState } from 'react';
+
+/**
+ * Window-size classes (same idea as Material's compact / medium / expanded).
+ * Layout follows the space available, not the device name:
+ *   compact  < 600px     phones, foldables when closed
+ *   medium   600-1023px  tablets, foldables when open, small windows
+ *   expanded >= 1024px   laptops, desktops, large tablets in landscape
+ */
+export type LayoutMode = 'compact' | 'medium' | 'expanded';
+
+export interface DeviceLayout {
+  mode: LayoutMode;
+  /** True when a foldable's window spans two screens (hinge between them). */
+  isSpanned: boolean;
+  showSidebar: boolean;
+  showBottomNav: boolean;
+}
+
+const MEDIUM_MIN = 600;
+const EXPANDED_MIN = 1024;
+
+function matches(query: string): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(query).matches;
+}
+
+function compute(): DeviceLayout {
+  // Unsupported browsers report false, so they fall back to width classes.
+  const isSpanned = matches('(horizontal-viewport-segments: 2)');
+  const mode: LayoutMode = matches(`(min-width: ${EXPANDED_MIN}px)`)
+    ? 'expanded'
+    : matches(`(min-width: ${MEDIUM_MIN}px)`)
+      ? 'medium'
+      : 'compact';
+  // Sidebar on large or spanned screens, bottom nav everywhere else.
+  const showSidebar = mode === 'expanded' || isSpanned;
+  return { mode, isSpanned, showSidebar, showBottomNav: !showSidebar };
+}
+
+export function useDeviceLayout(): DeviceLayout {
+  const [layout, setLayout] = useState<DeviceLayout>(compute);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const lists = [
+      `(min-width: ${MEDIUM_MIN}px)`,
+      `(min-width: ${EXPANDED_MIN}px)`,
+      '(horizontal-viewport-segments: 2)',
+    ].map((q) => window.matchMedia(q));
+
+    const update = () =>
+      setLayout((prev) => {
+        const next = compute();
+        return prev.mode === next.mode && prev.isSpanned === next.isSpanned ? prev : next;
+      });
+
+    // Listening to media queries only fires when a boundary is crossed,
+    // unlike a resize listener, so rotating or unfolding costs one render.
+    lists.forEach((l) => l.addEventListener('change', update));
+    update();
+    return () => lists.forEach((l) => l.removeEventListener('change', update));
+  }, []);
+
+  return layout;
+}
+```
+
+### FILE: src/config/navigation.ts
+One list of screens, labels and icons shared by the sidebar and dock.
+
+```ts
+import {
+  Bookmark, Cpu, GitCompare, Globe2, Home, Info, LineChart, Newspaper, Settings, Sparkles,
+  type LucideIcon,
+} from 'lucide-react';
+
+export interface NavItem {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  tag?: string;
+}
+
+export const NAV: Record<string, NavItem> = {
+  dashboard: { id: 'dashboard', label: 'Markets', icon: Home },
+  explorer: { id: 'explorer', label: 'Explorer', icon: LineChart },
+  watchlist: { id: 'watchlist', label: 'Watchlist', icon: Bookmark },
+  news: { id: 'news', label: 'Financial News', icon: Newspaper },
+  assistant: { id: 'assistant', label: 'PeekStox AI', icon: Sparkles, tag: 'AI' },
+  compare: { id: 'compare', label: 'Compare', icon: GitCompare },
+  algo: { id: 'algo', label: 'Quantitative Lab', icon: Cpu, tag: 'Staged' },
+  overview: { id: 'overview', label: 'Global Overview', icon: Globe2 },
+  settings: { id: 'settings', label: 'Settings', icon: Settings },
+  about: { id: 'about', label: 'About Us', icon: Info },
+};
+
+export const SIDEBAR_PRIMARY = ['dashboard', 'explorer', 'watchlist', 'news', 'assistant'].map((k) => NAV[k]);
+export const SIDEBAR_TOOLS = ['compare', 'algo', 'overview'].map((k) => NAV[k]);
+export const SIDEBAR_ACCOUNT = ['settings', 'about'].map((k) => NAV[k]);
+
+/** Phone tab bar: four top-level tabs plus "More" (a bottom nav holds five at most). */
+export const TABS = ['dashboard', 'explorer', 'watchlist', 'assistant'].map((k) => NAV[k]);
+export const MORE_ITEMS = ['compare', 'algo', 'overview', 'news', 'settings', 'about'].map((k) => NAV[k]);
+```
+
+### FILE: src/utils/market.ts
+Formatting helpers and indicator maths (RSI, MACD, SMA, Bollinger, trend projection, breadth).
+
+```ts
+export const nowTime = () =>
+  new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+export function formatPrice(value: number, currency = 'USD'): string {
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 2 }).format(value);
+  } catch {
+    return `${currency} ${value.toFixed(2)}`;
+  }
+}
+
+/** Index levels are points, not money, so no currency symbol. */
+export const formatLevel = (value: number) =>
+  new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+
+/** "+1.35%" / "−0.18%" (fixes the "+-0.18%" the old code produced). */
+export function formatSignedPercent(value: number): string {
+  const sign = value > 0 ? '+' : value < 0 ? '−' : '';
+  return `${sign}${Math.abs(value).toFixed(2)}%`;
+}
+
+export function timeAgo(input?: string | number | Date): string {
+  if (input === undefined || input === null || input === '') return '';
+  const d = new Date(input);
+  if (Number.isNaN(d.getTime())) return String(input);
+  const mins = Math.round((Date.now() - d.getTime()) / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.round(hrs / 24)}d ago`;
+}
+
+// ---- Indicators (computed from the price series you already have) ----
+
+export function emaSeries(v: number[], period: number): number[] {
+  const k = 2 / (period + 1);
+  const out: number[] = [];
+  v.forEach((x, i) => out.push(i === 0 ? x : x * k + out[i - 1] * (1 - k)));
+  return out;
+}
+
+const rsOf = (g: number, l: number) => (l === 0 ? 100 : 100 - 100 / (1 + g / l));
+
+/** Wilder RSI. Returns [] when there is not enough data. */
+export function rsiSeries(v: number[], period = 14): number[] {
+  const p = Math.min(period, Math.max(2, v.length - 2));
+  if (v.length < p + 1) return [];
+  let gain = 0;
+  let loss = 0;
+  for (let i = 1; i <= p; i++) {
+    const d = v[i] - v[i - 1];
+    if (d >= 0) gain += d;
+    else loss -= d;
+  }
+  gain /= p;
+  loss /= p;
+  const out = [rsOf(gain, loss)];
+  for (let i = p + 1; i < v.length; i++) {
+    const d = v[i] - v[i - 1];
+    gain = (gain * (p - 1) + Math.max(d, 0)) / p;
+    loss = (loss * (p - 1) + Math.max(-d, 0)) / p;
+    out.push(rsOf(gain, loss));
+  }
+  return out;
+}
+
+/** MACD line. Periods shrink for short series so it still renders. */
+export function macdSeries(v: number[]): number[] {
+  if (v.length < 6) return [];
+  const slow = Math.min(26, v.length - 1);
+  const fast = Math.max(2, Math.min(12, Math.floor(slow / 2)));
+  const f = emaSeries(v, fast);
+  const s = emaSeries(v, slow);
+  return v.map((_, i) => f[i] - s[i]);
+}
+
+export function smaSeries(v: number[], period: number): number[] {
+  const p = Math.min(period, v.length);
+  const out: number[] = [];
+  for (let i = p - 1; i < v.length; i++) {
+    out.push(v.slice(i - p + 1, i + 1).reduce((a, b) => a + b, 0) / p);
+  }
+  return out;
+}
+
+export function bollinger(v: number[], period = 20) {
+  const p = Math.min(period, v.length);
+  const mid: number[] = [];
+  const upper: number[] = [];
+  const lower: number[] = [];
+  for (let i = p - 1; i < v.length; i++) {
+    const w = v.slice(i - p + 1, i + 1);
+    const m = w.reduce((a, b) => a + b, 0) / p;
+    const sd = Math.sqrt(w.reduce((a, b) => a + (b - m) ** 2, 0) / p);
+    mid.push(m);
+    upper.push(m + 2 * sd);
+    lower.push(m - 2 * sd);
+  }
+  return { mid, upper, lower };
+}
+
+/** Least-squares trend over the last `lookback` points, extended forward.
+ *  An extrapolation of the line, not a forecast. */
+export function trendProjection(v: number[], lookback = 30) {
+  const w = v.slice(-lookback);
+  const n = w.length;
+  if (n < 4) return null;
+  const mx = (n - 1) / 2;
+  const my = w.reduce((a, b) => a + b, 0) / n;
+  let num = 0;
+  let den = 0;
+  w.forEach((y, x) => {
+    num += (x - mx) * (y - my);
+    den += (x - mx) ** 2;
+  });
+  const slope = num / den;
+  const at = (x: number) => my + slope * (x - mx);
+  const horizon = Math.max(3, Math.ceil(n / 3));
+  const projected = Array.from({ length: horizon }, (_, k) => at(n - 1 + k + 1));
+  const last = w[n - 1];
+  return { history: w, projected, driftPct: ((projected[horizon - 1] - last) / last) * 100 };
+}
+
+/** Share of tracked stocks that are up today, 0-100. */
+export function breadthPercent(stocks: { changePercent: number }[]): number {
+  const valid = stocks.filter((s) => Number.isFinite(s.changePercent));
+  if (!valid.length) return 50;
+  return Math.round((valid.filter((s) => s.changePercent > 0).length / valid.length) * 100);
+}
+```
+
+### FILE: src/components/NavLink.tsx
+Menu item that is a real #/view link but navigates in-app.
+
+```tsx
+import type { ReactNode } from 'react';
+
+/** A real link (#/view) so middle-click, copy-link and screen-reader "link" semantics work,
+ *  while a plain click navigates in-app without a page load. */
+export function NavLink({
+  id, active, onNavigate, onAfter, className, children,
+}: {
+  id: string;
+  active: boolean;
+  onNavigate: (id: string) => void;
+  onAfter?: () => void;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <a
+      href={`#/${id}`}
+      aria-current={active ? 'page' : undefined}
+      className={className}
+      onClick={(e) => {
+        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        onNavigate(id);
+        onAfter?.();
+      }}
+    >
+      {children}
+    </a>
+  );
+}
+```
+
+### FILE: src/components/ui.tsx
+Chart atoms: Spark, MiniLines, Gauge, Change.
+
+```tsx
+import { useId } from 'react';
+import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import { formatSignedPercent } from '../utils/market';
+
+const W = 100;
+const H = 40;
+
+function toPoints(data: number[], min: number, max: number): [number, number][] {
+  const range = max - min || 1;
+  return data.map((v, i) => [(i / Math.max(1, data.length - 1)) * W, H - 3 - ((v - min) / range) * (H - 6)]);
+}
+const toPath = (pts: [number, number][]) => pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(2)} ${y.toFixed(2)}`).join(' ');
+
+/** Up/down change with an arrow and screen-reader text, so colour is never the only signal. */
+export function Change({ value, className = '' }: { value: number; className?: string }) {
+  const up = value >= 0;
+  const Icon = up ? ArrowUpRight : ArrowDownRight;
+  return (
+    <span className={`inline-flex items-center gap-1 font-semibold tabular-nums ${up ? 'tone-up' : 'tone-down'} ${className}`}>
+      <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+      <span className="sr-only">{up ? 'Up' : 'Down'}</span>
+      {formatSignedPercent(value)}
+    </span>
+  );
+}
+
+/** Responsive line + soft area, with an optional dotted projection and end dot. */
+export function Spark({
+  data,
+  projected,
+  positive = true,
+  area = true,
+  dot = false,
+  glow = false,
+  label,
+}: {
+  data: number[];
+  projected?: number[];
+  positive?: boolean;
+  area?: boolean;
+  dot?: boolean;
+  glow?: boolean;
+  label?: string;
+}) {
+  const gid = useId();
+  if (!data || data.length < 2) return <div className="h-full w-full" aria-hidden="true" />;
+  const all = projected ? [...data, ...projected] : data;
+  const min = Math.min(...all);
+  const max = Math.max(...all);
+  const pts = toPoints(all, min, max);
+  const hist = pts.slice(0, data.length);
+  const proj = projected ? pts.slice(data.length - 1) : [];
+  const end = hist[hist.length - 1];
+  return (
+    <div className={`relative h-full w-full ${positive ? 'tone-up' : 'tone-down'}`} role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : true} style={glow ? { filter: 'drop-shadow(0 0 7px currentColor)' } : undefined}>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-full w-full overflow-visible">
+        <defs>
+          <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="currentColor" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {area && <path d={`${toPath(hist)} L${end[0]} ${H} L0 ${H} Z`} fill={`url(#${gid})`} />}
+        <path d={toPath(hist)} fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        {proj.length > 1 && (
+          <path d={toPath(proj)} fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" strokeLinecap="round" vectorEffect="non-scaling-stroke" opacity="0.8" />
+        )}
+      </svg>
+      {dot && (
+        <span
+          aria-hidden="true"
+          className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[var(--bg-card,#111316)] bg-current"
+          style={{ left: `${end[0]}%`, top: `${(end[1] / H) * 100}%` }}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Up to three overlaid thin lines sharing one scale (price + average, price + bands, etc.). */
+export function MiniLines({ lines }: { lines: { data: number[]; muted?: boolean }[] }) {
+  const valid = lines.filter((l) => l.data.length > 1);
+  if (!valid.length) return <div className="h-full w-full" aria-hidden="true" />;
+  const flat = valid.flatMap((l) => l.data);
+  const min = Math.min(...flat);
+  const max = Math.max(...flat);
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-full w-full tone-up" aria-hidden="true">
+      {valid.map((l, i) => {
+        // Right-align each series so shorter ones (averages, bands) end at "now".
+        const offset = Math.max(0, (valid[0].data.length - l.data.length) / Math.max(1, valid[0].data.length - 1)) * W;
+        const pts = toPoints(l.data, min, max).map(([x, y]) => [Math.min(W, x * (1 - offset / W) + offset), y] as [number, number]);
+        return <path key={i} d={toPath(pts)} fill="none" stroke="currentColor" strokeWidth={l.muted ? 1.25 : 2} opacity={l.muted ? 0.5 : 1} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />;
+      })}
+    </svg>
+  );
+}
+
+/** Semicircle gauge, value 0-100, red to green. */
+export function Gauge({ value, label }: { value: number; label: string }) {
+  const gid = useId();
+  const r = 52;
+  const len = Math.PI * r;
+  const v = Math.max(0, Math.min(100, value));
+  return (
+    <div className="relative mx-auto w-full max-w-[11rem]" role="img" aria-label={`${label}, ${v} out of 100`}>
+      <svg viewBox="0 0 120 68" className="w-full" aria-hidden="true">
+        <defs>
+          <linearGradient id={gid} gradientUnits="userSpaceOnUse" x1="8" y1="0" x2="112" y2="0">
+            <stop offset="0%" stopColor="#f43f5e" />
+            <stop offset="50%" stopColor="#f59e0b" />
+            <stop offset="100%" stopColor="#10b981" />
+          </linearGradient>
+        </defs>
+        <path d="M8 60 A52 52 0 0 1 112 60" fill="none" stroke={`url(#${gid})`} strokeWidth="10" strokeLinecap="round" opacity="0.22" />
+        <path d="M8 60 A52 52 0 0 1 112 60" fill="none" stroke={`url(#${gid})`} strokeWidth="10" strokeLinecap="round" strokeDasharray={`${(len * v) / 100} ${len}`} />
+      </svg>
+      <div className="absolute inset-x-0 bottom-0 text-center">
+        <p className="text-2xl font-bold leading-none tabular-nums">{v}%</p>
+        <p className="mt-1 text-sm font-semibold text-[var(--text-secondary)]">{label}</p>
+      </div>
+    </div>
+  );
+}
+```
+
+### FILE: src/components/Toast.tsx
+Accessible toast with per-toast timer, pause on hover, severity icons.
+
+```tsx
+import { useEffect, useState } from 'react';
+import { Bell, TrendingDown, TrendingUp, X } from 'lucide-react';
+
+export interface ToastData {
+  id: string;
+  title: string;
+  message: string;
+  severity: 'bullish' | 'bearish' | 'info';
+  /** ms before auto-dismiss. Pauses while hovered or focused. */
+  duration?: number;
+}
+
+const STYLE = {
+  bullish: { border: 'border-emerald-500/40', tone: 'tone-up', Icon: TrendingUp, label: 'Bullish alert' },
+  bearish: { border: 'border-rose-500/40', tone: 'tone-down', Icon: TrendingDown, label: 'Bearish alert' },
+  info: { border: 'border-sky-500/40', tone: 'tone-info', Icon: Bell, label: 'Notice' },
+} as const;
+
+export function Toast({ toast, onDismiss }: { toast: ToastData | null; onDismiss: () => void }) {
+  const [paused, setPaused] = useState(false);
+  const id = toast?.id;
+  const duration = toast?.duration ?? 5000;
+
+  // One timer per toast id: a newer toast replaces the old timer, so an old
+  // timeout can never dismiss a fresh toast early.
+  useEffect(() => {
+    if (!id || paused) return;
+    const t = window.setTimeout(onDismiss, duration);
+    return () => window.clearTimeout(t);
+  }, [id, paused, duration, onDismiss]);
+
+  useEffect(() => setPaused(false), [id]);
+
+  const s = toast ? STYLE[toast.severity] : null;
+
+  return (
+    <div className="toast-region" aria-live="polite" aria-atomic="true">
+      {toast && s && (
+        <div
+          key={toast.id}
+          className={`rounded-2xl border ${s.border} glass p-4`}
+          onMouseEnter={() => setPaused(true)}
+          onMouseLeave={() => setPaused(false)}
+          onFocus={() => setPaused(true)}
+          onBlur={() => setPaused(false)}
+          onKeyDown={(e) => e.key === 'Escape' && onDismiss()}
+        >
+          <div className="flex items-start gap-3">
+            <div className={`tone-chip flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${s.tone}`}>
+              <s.Icon aria-hidden="true" className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-[var(--text-primary)]">
+                <span className="sr-only">{s.label}: </span>
+                {toast.title}
+              </p>
+              <p className="mt-0.5 text-sm leading-relaxed text-[var(--text-secondary)]">{toast.message}</p>
+            </div>
+            <button type="button" onClick={onDismiss} aria-label="Dismiss notification" className="touch-target -mr-1 -mt-1 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+              <X aria-hidden="true" className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### FILE: src/components/Navbar.tsx
+Sticky glass header: title, search, live chip, alerts, theme, avatar, price strip.
+
+```tsx
+import { Bell, Moon, RefreshCw, Search, Sun } from 'lucide-react';
+import type { GlobalIndex, MarketNotification, StockQuote, UserProfile } from '../types';
+import { NAV } from '../config/navigation';
+import { PeekStoxMark } from './PeekStoxLogo';
+import { Change } from './ui';
+import { formatLevel, formatPrice } from '../utils/market';
+
+interface NavbarProps {
+  user: UserProfile;
+  notifications: MarketNotification[];
+  isDark: boolean;
+  onToggleTheme: () => void;
+  onOpenSearch: () => void;
+  onOpenAlerts: () => void;
+  onOpenAuth: () => void;
+  activeView: string;
+  onNavigate: (view: string) => void;
+  isLiveConnected: boolean;
+  isSyncingLiveQuotes: boolean;
+  lastLiveSyncTime: Date | null;
+  onRefreshQuotes: () => void;
+  liveIndices: GlobalIndex[];
+  featuredStocks: StockQuote[];
+  onSelectStock: (ticker: string) => void;
+  /** Show the brand mark here (phones, tablets). On laptops the sidebar carries it. */
+  showBrand: boolean;
+  /** Phones get a lighter header: no price strip, no theme button. */
+  compact: boolean;
+}
+
+const indexName = (i: GlobalIndex) => (i as { name?: string }).name ?? i.id;
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+const iconBtn = 'touch-target relative shrink-0 rounded-xl border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]';
+
+export function Navbar(p: NavbarProps) {
+  const unread = p.notifications.filter((n) => !n.isRead).length;
+  const title = NAV[p.activeView]?.label ?? 'Markets';
+  const initials = (p.user.name || '?').split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+  const syncTitle = p.lastLiveSyncTime ? `Last synced ${p.lastLiveSyncTime.toLocaleTimeString()}` : 'Not synced yet';
+
+  return (
+    <header className="app-header">
+      <div className="flex min-h-14 items-center gap-2 px-3 sm:gap-3 sm:px-6">
+        {p.showBrand && <span className="max-[379px]:hidden"><PeekStoxMark size={32} /></span>}
+        <h1 className="min-w-0 flex-1 truncate text-lg font-bold text-[var(--text-primary)] sm:flex-none sm:text-xl">{title}</h1>
+
+        {/* Tablet and laptop: search field. Phone: icon button below. */}
+        <div className="hidden min-w-0 flex-1 sm:block">
+          <button
+            type="button"
+            onClick={p.onOpenSearch}
+            className="mx-auto flex h-10 w-full max-w-md items-center gap-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-3 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+          >
+            <Search aria-hidden="true" className="h-4 w-4 shrink-0 tone-up" />
+            <span className="flex-1 truncate text-left">Search stocks, indices…</span>
+            <kbd className="kbd-hint rounded-md border border-[var(--border-color)] px-1.5 py-0.5 text-xs text-[var(--text-muted)]">{isMac ? '⌘K' : 'Ctrl K'}</kbd>
+          </button>
+        </div>
+        <button type="button" onClick={p.onOpenSearch} aria-label="Search" className={`${iconBtn} sm:hidden`}>
+          <Search aria-hidden="true" className="h-5 w-5" />
+        </button>
+
+        <button
+          type="button"
+          onClick={p.onRefreshQuotes}
+          title={syncTitle}
+          aria-label={`${p.isLiveConnected ? 'Live data connected' : 'Live data offline'}. Refresh quotes`}
+          className="live-chip inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-semibold"
+        >
+          <span aria-hidden="true" className={`h-2 w-2 rounded-full ${p.isLiveConnected ? 'bg-[var(--positive)]' : 'bg-[var(--negative)]'}`} />
+          <span>{p.isLiveConnected ? 'Live' : 'Offline'}</span>
+          <RefreshCw aria-hidden="true" className={`hidden h-3.5 w-3.5 sm:block ${p.isSyncingLiveQuotes ? 'motion-safe:animate-spin' : ''}`} />
+        </button>
+
+        <button type="button" onClick={p.onOpenAlerts} aria-label={unread ? `Alerts, ${unread} unread` : 'Alerts'} className={iconBtn}>
+          <Bell aria-hidden="true" className="h-5 w-5" />
+          {unread > 0 && (
+            <span aria-hidden="true" className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--positive)] px-1 text-xs font-bold text-[#07130e]">{unread}</span>
+          )}
+        </button>
+
+        {!p.compact && (
+          <button type="button" onClick={p.onToggleTheme} aria-label={p.isDark ? 'Switch to light theme' : 'Switch to dark theme'} className={iconBtn}>
+            {p.isDark ? <Sun aria-hidden="true" className="h-5 w-5" /> : <Moon aria-hidden="true" className="h-5 w-5" />}
+          </button>
+        )}
+
+        {p.showBrand && (
+          <button type="button" onClick={p.onOpenAuth} aria-label={`Account: ${p.user.name}`} className="touch-target shrink-0 overflow-hidden rounded-full border border-[var(--border-color)]">
+            {p.user.avatarUrl ? <img src={p.user.avatarUrl} alt="" className="h-9 w-9 object-cover" /> : <span className="text-xs font-bold">{initials}</span>}
+          </button>
+        )}
+      </div>
+
+      {!p.compact && (
+        <div className="border-t border-[var(--border-color)] px-3 sm:px-6" role="region" aria-label="Live prices">
+          <ul className="hscroll items-center gap-6 py-2 text-sm">
+            {p.liveIndices.slice(0, 4).map((i) => (
+              <li key={i.id} className="flex items-center gap-2 whitespace-nowrap">
+                <span className="font-semibold text-[var(--text-primary)]">{indexName(i)}</span>
+                <span className="tabular-nums text-[var(--text-secondary)]">{formatLevel(i.value)}</span>
+                <Change value={i.changePercent} />
+              </li>
+            ))}
+            {p.featuredStocks.slice(0, 8).map((s) => (
+              <li key={s.ticker} className="whitespace-nowrap">
+                <button type="button" onClick={() => p.onSelectStock(s.ticker)} className="flex items-center gap-2 rounded-md hover:opacity-80">
+                  <span className="font-semibold text-[var(--text-primary)]">{s.ticker}</span>
+                  <span className="tabular-nums text-[var(--text-secondary)]">{formatPrice(s.price, s.currency)}</span>
+                  <Change value={s.changePercent} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </header>
+  );
+}
+```
+
+### FILE: src/components/Sidebar.tsx
+Laptop sidebar: nav, tools, alerts, settings, profile.
+
+```tsx
+import { Bell } from 'lucide-react';
+import type { UserProfile } from '../types';
+import { SIDEBAR_ACCOUNT, SIDEBAR_PRIMARY, SIDEBAR_TOOLS, type NavItem } from '../config/navigation';
+import { NavLink } from './NavLink';
+import { PeekStoxLogo } from './PeekStoxLogo';
+
+interface SidebarProps {
+  activeView: string;
+  onNavigate: (view: string) => void;
+  unreadAlertsCount: number;
+  onOpenAlerts: () => void;
+  user: UserProfile;
+  onOpenAuth: () => void;
+}
+
+const row = (active: boolean) =>
+  `flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors ${
+    active ? 'bg-emerald-500/15 text-[var(--text-primary)] ring-1 ring-emerald-400/30 shadow-[0_0_22px_rgba(16,185,129,0.20)]' : 'text-[var(--text-secondary)] hover:bg-[rgb(128_128_128/0.14)] hover:text-[var(--text-primary)]'
+  }`;
+
+export function Sidebar({ activeView, onNavigate, unreadAlertsCount, onOpenAlerts, user, onOpenAuth }: SidebarProps) {
+  const initials = (user.name || '?').split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+
+  const renderItem = (item: NavItem) => {
+    const active = activeView === item.id;
+    return (
+      <li key={item.id}>
+        <NavLink id={item.id} active={active} onNavigate={onNavigate} className={row(active)}>
+          <item.icon aria-hidden="true" className={`h-5 w-5 shrink-0 ${active ? 'tone-up' : ''}`} />
+          <span className="flex-1 truncate">{item.label}</span>
+          {item.tag && <span className="rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-xs font-semibold tone-up">{item.tag}</span>}
+        </NavLink>
+      </li>
+    );
+  };
+
+  return (
+    <aside className="app-sidebar flex flex-col glass-bar border-r border-[var(--ps-border)] px-3 pb-3 pt-5">
+      <div className="px-2 pb-5"><PeekStoxLogo /></div>
+      <nav aria-label="Primary" className="flex-1 overflow-y-auto">
+        <ul className="space-y-1">{SIDEBAR_PRIMARY.map(renderItem)}</ul>
+        <p className="mb-1 mt-5 px-3 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Tools</p>
+        <ul className="space-y-1">{SIDEBAR_TOOLS.map(renderItem)}</ul>
+      </nav>
+      <div className="mt-3 space-y-1 border-t border-[var(--ps-border)] pt-3">
+        <button type="button" onClick={onOpenAlerts} className={row(false)}>
+          <Bell aria-hidden="true" className="h-5 w-5 shrink-0" />
+          <span className="flex-1 text-left">Market Alerts</span>
+          {unreadAlertsCount > 0 && (
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1 text-xs font-bold text-black">
+              <span className="sr-only">{unreadAlertsCount} unread</span><span aria-hidden="true">{unreadAlertsCount}</span>
+            </span>
+          )}
+        </button>
+        <ul className="space-y-1">{SIDEBAR_ACCOUNT.map(renderItem)}</ul>
+        <button type="button" onClick={onOpenAuth} aria-label={`Account: ${user.name}`} className="mt-2 flex w-full items-center gap-3 rounded-xl border border-[var(--ps-border)] p-2 text-left">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[rgb(128_128_128/0.2)] text-xs font-bold">
+            {user.avatarUrl ? <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" /> : initials}
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-semibold">{user.name}</span>
+            <span className="block truncate text-xs capitalize text-[var(--text-muted)]">{user.role}</span>
+          </span>
+        </button>
+      </div>
+    </aside>
+  );
+}
+```
+
+### FILE: src/components/BottomNav.tsx
+Floating liquid-glass dock for phones and tablets, plus the More sheet.
+
+```tsx
+import React, { useEffect, useRef, useState } from 'react';
+import { BarChart2, Bell, Bookmark, Cpu, GitCompare, Globe, Home, Info, MoreHorizontal, Newspaper, Settings, Sparkles } from 'lucide-react';
+
+interface BottomNavProps {
+  activeView: string;
+  onNavigate: (view: string) => void;
+  onOpenAlerts?: () => void;
+  unreadAlertsCount?: number;
+}
+
+interface Dest {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+// Four top-level tabs plus "More" (a tab bar holds five at most).
+const TABS: Dest[] = [
+  { id: 'dashboard', label: 'Markets', icon: Home },
+  { id: 'explorer', label: 'Explorer', icon: BarChart2 },
+  { id: 'watchlist', label: 'Watchlist', icon: Bookmark },
+  { id: 'assistant', label: 'AI', icon: Sparkles },
+];
+const MORE: Dest[] = [
+  { id: 'compare', label: 'Compare', icon: GitCompare },
+  { id: 'algo', label: 'Quantitative Lab', icon: Cpu },
+  { id: 'overview', label: 'Global Overview', icon: Globe },
+  { id: 'news', label: 'Financial News', icon: Newspaper },
+  { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'about', label: 'About Us', icon: Info },
+];
+
+/** Floating liquid-glass dock for phones and tablets (hidden by CSS on laptops). */
+export const BottomNav: React.FC<BottomNavProps> = ({ activeView, onNavigate, onOpenAlerts, unreadAlertsCount = 0 }) => {
+  const [open, setOpen] = useState(false);
+  const moreBtn = useRef<HTMLButtonElement>(null);
+  const sheet = useRef<HTMLDivElement>(null);
+  const moreActive = MORE.some((m) => m.id === activeView);
+
+  const close = () => {
+    setOpen(false);
+    moreBtn.current?.focus();
+  };
+
+  // Escape closes, Tab stays inside the sheet, focus moves into it on open.
+  useEffect(() => {
+    if (!open) return;
+    sheet.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') return close();
+      if (e.key !== 'Tab' || !sheet.current) return;
+      const items = Array.from(sheet.current.querySelectorAll<HTMLElement>('a[href], button'));
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === sheet.current)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
+  // Real links (#/view) so copy-link works; a plain tap navigates in-app.
+  const go = (e: React.MouseEvent, id: string) => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    onNavigate(id);
+    setOpen(false);
+  };
+
+  return (
+    <>
+      {open && (
+        <>
+          <button type="button" className="sheet-backdrop" aria-label="Close menu" tabIndex={-1} onClick={close} />
+          <div ref={sheet} tabIndex={-1} role="dialog" aria-modal="true" aria-label="More destinations" className="sheet">
+            <div className="sheet-grip" aria-hidden="true" />
+            <ul className="grid gap-1">
+              {MORE.map((m) => (
+                <li key={m.id}>
+                  <a href={`#/${m.id}`} aria-current={activeView === m.id ? 'page' : undefined} onClick={(e) => go(e, m.id)} className="sheet-item">
+                    <m.icon aria-hidden="true" className="h-5 w-5" />
+                    {m.label}
+                  </a>
+                </li>
+              ))}
+              {onOpenAlerts && (
+                <li>
+                  <button type="button" className="sheet-item" onClick={() => { setOpen(false); onOpenAlerts(); }}>
+                    <Bell aria-hidden="true" className="h-5 w-5" />
+                    <span className="flex-1">Market Alerts</span>
+                    {unreadAlertsCount > 0 && <span className="tone-chip rounded-full px-2 text-xs font-bold">{unreadAlertsCount}<span className="sr-only"> unread</span></span>}
+                  </button>
+                </li>
+              )}
+            </ul>
+          </div>
+        </>
+      )}
+
+      <nav aria-label="Primary" className="dock">
+        <ul>
+          {TABS.map((t) => (
+            <li key={t.id}>
+              <a href={`#/${t.id}`} aria-current={activeView === t.id ? 'page' : undefined} onClick={(e) => go(e, t.id)} className="dock-tab">
+                <t.icon aria-hidden="true" className="h-[22px] w-[22px]" />
+                {t.label}
+              </a>
+            </li>
+          ))}
+          <li>
+            <button
+              ref={moreBtn}
+              type="button"
+              aria-haspopup="dialog"
+              aria-expanded={open}
+              aria-current={moreActive ? 'page' : undefined}
+              onClick={() => setOpen(true)}
+              className="dock-tab"
+            >
+              <MoreHorizontal aria-hidden="true" className="h-[22px] w-[22px]" />
+              More
+              {unreadAlertsCount > 0 && (
+                <span className="bottom-badge">
+                  <span aria-hidden="true">{unreadAlertsCount}</span>
+                  <span className="sr-only">{unreadAlertsCount} unread alerts</span>
+                </span>
+              )}
+            </button>
+          </li>
+        </ul>
+      </nav>
+    </>
+  );
+};
+```
+
+### FILE: src/views/DashboardView.tsx
+Markets screen: compact phone cards, tap-to-enlarge views, gap-free laptop columns.
+
+```tsx
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { ChevronRight, Maximize2, Radio, Sparkles, X } from 'lucide-react';
+import type { GlobalIndex, NewsItem, StockQuote } from '../types';
+import { Change, Gauge, MiniLines, Spark } from '../components/ui';
+import { useDeviceLayout } from '../hooks/useDeviceLayout';
+import {
+  bollinger, breadthPercent, formatLevel, formatPrice, macdSeries, rsiSeries, smaSeries, timeAgo, trendProjection,
+} from '../utils/market';
+
+interface DashboardViewProps {
+  indices: GlobalIndex[];
+  stocks: StockQuote[];
+  news: NewsItem[];
+  watchlist: string[];
+  onSelectStock: (ticker: string) => void;
+  onNavigate: (view: string) => void;
+  onOpenAlerts: () => void;
+}
+
+// GlobalIndex.name and the NewsItem fields below are read defensively because
+// their exact shape was not visible. Adjust if your types differ.
+const indexName = (i: GlobalIndex) => (i as { name?: string }).name ?? i.id;
+type NewsLike = { id?: string; title?: string; headline?: string; source?: string; publisher?: string; timestamp?: string; publishedAt?: string; time?: string; imageUrl?: string; image?: string; url?: string; link?: string };
+
+type IndKey = 'rsi' | 'macd' | 'ma' | 'bb';
+type Detail =
+  | { kind: 'hero' } | { kind: 'sentiment' } | { kind: 'ai' } | { kind: 'projection' }
+  | { kind: 'indicator'; key: IndKey } | { kind: 'stock'; ticker: string } | { kind: 'news'; index: number };
+
+const H = ({ children }: { children: ReactNode }) => (
+  <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">{children}</h2>
+);
+const Stat = ({ label, value }: { label: string; value: ReactNode }) => (
+  <div className="tile p-3">
+    <p className="text-xs text-[var(--text-muted)]">{label}</p>
+    <p className="mt-0.5 text-base font-semibold tabular-nums">{value}</p>
+  </div>
+);
+
+/** Invisible full-card button + small corner icon: on phones, tapping the card enlarges it. */
+function Hit({ label, onOpen }: { label: string; onOpen: () => void }) {
+  return (
+    <>
+      <button type="button" className="card-hit" aria-label={`Expand ${label}`} aria-haspopup="dialog" onClick={onOpen} />
+      <Maximize2 aria-hidden="true" className="card-expand-icon h-3.5 w-3.5" />
+    </>
+  );
+}
+
+/** Enlarged view: centred glass panel with a close X (Esc and backdrop tap also close). */
+function DetailSheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    ref.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') return closeRef.current();
+      if (e.key !== 'Tab' || !ref.current) return;
+      const f = Array.from(ref.current.querySelectorAll<HTMLElement>('a[href], button:not([disabled])'));
+      if (!f.length) return;
+      const first = f[0];
+      const last = f[f.length - 1];
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === ref.current)) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+      opener?.focus?.();
+    };
+  }, []);
+
+  // Portal to <body> so the floating dock (a sibling of the app shell) can never sit on top of it.
+  return createPortal(
+    <>
+      <button type="button" className="detail-backdrop" aria-label="Close" tabIndex={-1} onClick={onClose} />
+      <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="detail-title" className="detail glass">
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <h2 id="detail-title" className="min-w-0 text-lg font-bold">{title}</h2>
+          <button type="button" onClick={onClose} aria-label="Close" className="touch-target -mr-2 -mt-2 shrink-0 rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+            <X aria-hidden="true" className="h-5 w-5" />
+          </button>
+        </div>
+        {children}
+      </div>
+    </>,
+    document.body,
+  );
+}
+
+export function DashboardView({ indices, stocks, news, watchlist, onSelectStock, onNavigate, onOpenAlerts }: DashboardViewProps) {
+  const { mode } = useDeviceLayout();
+  const compact = mode === 'compact';
+  const [detail, setDetail] = useState<Detail | null>(null);
+  useEffect(() => { if (!compact) setDetail(null); }, [compact]);
+
+  const defaultId = useMemo(
+    () => (indices.find((i) => /s&p|spx|gspc/i.test(`${i.id} ${indexName(i)}`)) ?? indices[0])?.id,
+    [indices],
+  );
+  const [pickedId, setPickedId] = useState<string | undefined>();
+  const featured = indices.find((i) => i.id === (pickedId ?? defaultId)) ?? indices[0];
+  const series = featured?.sparkline ?? [];
+
+  const analysis = useMemo(() => {
+    // Indicators need enough history to mean anything (RSI 15+, MACD 26+, 10-point average/bands).
+    const n = series.length;
+    const rsi = n >= 15 ? rsiSeries(series) : [];
+    const macd = n >= 26 ? macdSeries(series) : [];
+    const sma = n >= 10 ? smaSeries(series, 10) : [];
+    const bb = n >= 10 ? bollinger(series, 10) : { mid: [], upper: [], lower: [] };
+    const last = series[series.length - 1];
+    const rsiNow = rsi[rsi.length - 1];
+    const macdNow = macd[macd.length - 1];
+    const smaNow = sma[sma.length - 1];
+    const upper = bb.upper[bb.upper.length - 1];
+    const lower = bb.lower[bb.lower.length - 1];
+    return {
+      n, rsi, macd, sma, bb, last, rsiNow, macdNow, smaNow,
+      rsiState: rsiNow === undefined ? 'Needs more data' : rsiNow >= 70 ? 'Overbought' : rsiNow <= 30 ? 'Oversold' : 'Neutral',
+      macdState: macdNow === undefined ? 'Needs more data' : macdNow >= 0 ? 'Bullish' : 'Bearish',
+      smaState: smaNow === undefined ? 'Needs more data' : last >= smaNow ? 'Above avg' : 'Below avg',
+      bbState: upper === undefined ? 'Needs more data' : last >= upper ? 'Upper band' : last <= lower ? 'Lower band' : 'Inside bands',
+      projection: trendProjection(series),
+    };
+  }, [series]);
+
+  const breadth = useMemo(() => breadthPercent(stocks), [stocks]);
+  const mood = breadth > 60 ? 'Bullish' : breadth < 40 ? 'Bearish' : 'Neutral';
+  const byChange = useMemo(
+    () => [...stocks].filter((s) => Number.isFinite(s.changePercent)).sort((a, b) => b.changePercent - a.changePercent),
+    [stocks],
+  );
+  const top = useMemo(() => [...byChange].sort((a, b) => Math.abs(b.changePercent) - Math.abs(a.changePercent))[0], [byChange]);
+  const sectors = useMemo(() => {
+    const m = new Map<string, number[]>();
+    stocks.forEach((s) => {
+      if (!s.sector || !Number.isFinite(s.changePercent)) return;
+      m.set(s.sector, [...(m.get(s.sector) ?? []), s.changePercent]);
+    });
+    return [...m.entries()].map(([name, v]) => ({ name, avg: v.reduce((a, b) => a + b, 0) / v.length })).sort((a, b) => b.avg - a.avg);
+  }, [stocks]);
+  const upCount = stocks.filter((s) => s.changePercent > 0).length;
+  const watched = watchlist.map((t) => stocks.find((s) => s.ticker === t)).filter((s): s is StockQuote => Boolean(s)).slice(0, compact ? 3 : 6);
+
+  const newsItems = news.slice(0, compact ? 3 : 5).map((n) => {
+    const item = n as unknown as NewsLike;
+    return {
+      title: item.title ?? item.headline ?? 'Untitled',
+      source: item.source ?? item.publisher ?? '',
+      when: timeAgo(item.timestamp ?? item.publishedAt ?? item.time),
+      img: item.imageUrl ?? item.image,
+      href: item.url ?? item.link,
+    };
+  });
+
+  if (!featured) return <p className="text-[var(--text-secondary)]">Market data is loading…</p>;
+
+  const indicators: { key: IndKey; name: string; short: string; value: string; state: string; lines: { data: number[]; muted?: boolean }[]; need: number; about: string }[] = [
+    { key: 'rsi', name: 'RSI', short: 'RSI', value: analysis.rsiNow?.toFixed(1) ?? '—', state: analysis.rsiState, lines: [{ data: analysis.rsi }], need: 15,
+      about: 'Relative Strength Index compares recent gains with recent losses. Above 70 is often read as overbought, below 30 as oversold.' },
+    { key: 'macd', name: 'MACD', short: 'MACD', value: analysis.macdNow?.toFixed(2) ?? '—', state: analysis.macdState, lines: [{ data: analysis.macd }], need: 26,
+      about: 'The gap between a fast and a slow moving average. Above zero suggests upward momentum, below zero downward.' },
+    { key: 'ma', name: 'Moving Avg', short: 'MA', value: analysis.smaNow ? formatLevel(analysis.smaNow) : '—', state: analysis.smaState, lines: [{ data: series, muted: true }, { data: analysis.sma }], need: 10,
+      about: 'The average of the last 10 prices. Price above it suggests an uptrend, below it a downtrend.' },
+    { key: 'bb', name: 'Bollinger', short: 'BB', value: analysis.bb.mid.length ? formatLevel(analysis.bb.mid[analysis.bb.mid.length - 1]) : '—', state: analysis.bbState, lines: [{ data: series }, { data: analysis.bb.upper, muted: true }, { data: analysis.bb.lower, muted: true }], need: 10,
+      about: 'A 10-point average with bands two standard deviations either side. Price near the upper band is stretched upward, near the lower band stretched downward.' },
+  ];
+  const proj = analysis.projection;
+  const fmtVol = (v: number) => new Intl.NumberFormat(undefined, { notation: 'compact' }).format(v);
+
+  const chips = (
+    <div role="group" aria-label="Choose benchmark" className="hscroll">
+      {indices.map((i) => (
+        <button key={i.id} type="button" aria-pressed={i.id === featured.id} onClick={() => setPickedId(i.id)} className={`chip ${i.id === featured.id ? 'bg-[var(--active-pill)] tone-up' : 'text-[var(--text-secondary)]'}`}>
+          {indexName(i)}
+        </button>
+      ))}
+    </div>
+  );
+
+  /* ---------- Enlarged views (phones) ---------- */
+  const renderDetail = (d: Detail): { title: string; body: ReactNode } => {
+    switch (d.kind) {
+      case 'hero':
+        return {
+          title: indexName(featured),
+          body: (
+            <>
+              <div className="flex flex-wrap items-center gap-3">
+                <p className="text-4xl font-bold tabular-nums">{formatLevel(featured.value)}</p>
+                <span className={`rounded-full px-3 py-1.5 text-sm ${featured.changePercent >= 0 ? 'pill-up' : 'pill-down'}`}><Change value={featured.changePercent} /></span>
+              </div>
+              <div className="mt-4 h-52"><Spark data={series} positive={featured.changePercent >= 0} dot glow label={`${indexName(featured)} recent price trend`} /></div>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                {Number.isFinite(featured.high) && <Stat label="Day high" value={formatLevel(featured.high)} />}
+                {Number.isFinite(featured.low) && <Stat label="Day low" value={formatLevel(featured.low)} />}
+                {featured.status && <Stat label="Status" value={featured.status} />}
+                {featured.lastUpdated && <Stat label="Updated" value={featured.lastUpdated} />}
+              </div>
+              <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Switch benchmark</p>
+              {chips}
+            </>
+          ),
+        };
+      case 'sentiment': {
+        const row = (s: StockQuote) => (
+          <li key={s.ticker} className="flex items-center justify-between gap-3 py-2">
+            <span className="min-w-0"><span className="font-semibold">{s.ticker}</span> <span className="text-xs text-[var(--text-muted)]">{s.name}</span></span>
+            <Change value={s.changePercent} />
+          </li>
+        );
+        return {
+          title: 'Market sentiment',
+          body: (
+            <>
+              <Gauge value={breadth} label={mood} />
+              <p className="mt-3 text-sm text-[var(--text-secondary)]">{upCount} of {stocks.length} tracked stocks are up today ({breadth}%). Above 60% reads Bullish, below 40% Bearish, in between Neutral.</p>
+              <p className="mb-1 mt-4 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Top gainers</p>
+              <ul className="divide-y divide-[var(--border-color)]">{byChange.slice(0, 3).map(row)}</ul>
+              <p className="mb-1 mt-4 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Top decliners</p>
+              <ul className="divide-y divide-[var(--border-color)]">{byChange.slice(-3).reverse().map(row)}</ul>
+            </>
+          ),
+        };
+      }
+      case 'ai': {
+        const lead = sectors[0];
+        const lag = sectors.length > 1 ? sectors[sectors.length - 1] : undefined;
+        return {
+          title: 'AI analyst',
+          body: (
+            <>
+              <div className="flex items-center gap-4">
+                <span aria-hidden="true" className="ps-orb h-16 w-16 shrink-0" />
+                <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
+                  Breadth reads <strong className="text-[var(--text-primary)]">{mood.toLowerCase()}</strong> at {breadth}%, with {upCount} of {stocks.length} tracked stocks up.
+                  {top && <> The biggest mover is <strong className="text-[var(--text-primary)]">{top.ticker}</strong> at <Change value={top.changePercent} />.</>}
+                  {lead && <> {lead.name} is leading the sectors (<Change value={lead.avg} />){lag && <>, while {lag.name} is lagging (<Change value={lag.avg} />)</>}.</>}
+                </p>
+              </div>
+              <p className="mt-3 text-xs text-[var(--text-muted)]">Written from live quotes only. Not financial advice.</p>
+              <button type="button" onClick={() => { setDetail(null); onNavigate('assistant'); }} className="mt-4 inline-flex min-h-11 items-center gap-1 rounded-xl text-sm font-semibold tone-up">
+                Ask PeekStox AI <ChevronRight aria-hidden="true" className="h-4 w-4" />
+              </button>
+            </>
+          ),
+        };
+      }
+      case 'indicator': {
+        const ind = indicators.find((i) => i.key === d.key)!;
+        const ready = ind.value !== '—';
+        return {
+          title: `${ind.name} · ${indexName(featured)}`,
+          body: (
+            <>
+              <div className="flex items-baseline gap-3"><p className="text-4xl font-bold tabular-nums">{ind.value}</p><p className="text-sm font-semibold text-[var(--text-secondary)]">{ind.state}</p></div>
+              <div className="tile mt-4 h-40 p-3"><MiniLines lines={ind.lines} /></div>
+              <p className="mt-3 text-sm text-[var(--text-secondary)]">{ind.about}</p>
+              {!ready && <p className="mt-3 text-sm text-[var(--text-secondary)]">This series has {analysis.n} price points; {ind.need}+ are needed for a meaningful reading.</p>}
+              <p className="mt-3 text-xs text-[var(--text-muted)]">Computed from the benchmark's recent price series.</p>
+            </>
+          ),
+        };
+      }
+      case 'projection':
+        return {
+          title: 'Trend projection',
+          body: (
+            <>
+              {proj ? (
+                <>
+                  <div className="flex items-center gap-3"><Change value={proj.driftPct} className="text-2xl" /><span className="text-sm text-[var(--text-secondary)]">if the recent trend simply continued</span></div>
+                  <div className="tile mt-4 h-48 p-3"><Spark data={proj.history} projected={proj.projected} positive={proj.driftPct >= 0} area={false} label="Recent trend with dotted projection" /></div>
+                </>
+              ) : <p className="text-sm text-[var(--text-secondary)]">Needs more data.</p>}
+              <p className="mt-3 text-sm text-[var(--text-secondary)]">A straight-line extension of the recent trend (dotted). It is not a forecast and not financial advice.</p>
+            </>
+          ),
+        };
+      case 'stock': {
+        const s = stocks.find((x) => x.ticker === d.ticker);
+        if (!s) return { title: d.ticker, body: null };
+        return {
+          title: `${s.ticker} · ${s.name}`,
+          body: (
+            <>
+              <div className="flex flex-wrap items-center gap-3">
+                <p className="text-4xl font-bold tabular-nums">{formatPrice(s.price, s.currency)}</p>
+                <span className={`rounded-full px-3 py-1.5 text-sm ${s.changePercent >= 0 ? 'pill-up' : 'pill-down'}`}><Change value={s.changePercent} /></span>
+              </div>
+              <div className="mt-4 h-40"><Spark data={s.sparkline} positive={s.changePercent >= 0} dot label={`${s.ticker} recent price trend`} /></div>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <Stat label="Day high" value={formatPrice(s.dayHigh, s.currency)} />
+                <Stat label="Day low" value={formatPrice(s.dayLow, s.currency)} />
+                <Stat label="52-week high" value={formatPrice(s.yearHigh, s.currency)} />
+                <Stat label="52-week low" value={formatPrice(s.yearLow, s.currency)} />
+                <Stat label="Volume" value={fmtVol(s.volume)} />
+                <Stat label="Exchange" value={s.exchange} />
+              </div>
+              <button type="button" onClick={() => { setDetail(null); onSelectStock(s.ticker); }} className="chip mt-4 bg-[var(--active-pill)] tone-up">Open in Explorer</button>
+            </>
+          ),
+        };
+      }
+      case 'news': {
+        const n = newsItems[d.index];
+        if (!n) return { title: 'News', body: null };
+        return {
+          title: n.title,
+          body: (
+            <>
+              {n.img && <img src={n.img} alt="" className="mb-3 max-h-48 w-full rounded-xl object-cover" />}
+              <p className="text-sm text-[var(--text-muted)]">{[n.source, n.when].filter(Boolean).join(' · ')}</p>
+              {n.href && <a href={n.href} target="_blank" rel="noopener noreferrer" className="chip mt-4 bg-[var(--active-pill)] tone-up">Read article</a>}
+            </>
+          ),
+        };
+      }
+    }
+  };
+  const view = detail ? renderDetail(detail) : null;
+
+  return (
+    <>
+      <div className="dash-root">
+        <div className="dash-left">
+          {/* Hero benchmark */}
+          <section aria-labelledby="hero-title" className="o-hero ps-card ps-hero p-3 min-[600px]:p-6">
+            {compact && <Hit label={`${indexName(featured)} chart`} onOpen={() => setDetail({ kind: 'hero' })} />}
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Featured benchmark</p>
+                <h2 id="hero-title" className="mt-0.5 truncate text-lg font-bold min-[600px]:mt-1 min-[600px]:text-2xl">{indexName(featured)}</h2>
+              </div>
+              <span className={`mr-5 shrink-0 rounded-full px-2.5 py-1 text-sm min-[600px]:mr-0 min-[600px]:px-3 min-[600px]:py-1.5 ${featured.changePercent >= 0 ? 'pill-up' : 'pill-down'}`}><Change value={featured.changePercent} /></span>
+            </div>
+            <p className="mt-1 text-3xl font-bold tabular-nums min-[600px]:mt-3 min-[600px]:text-4xl lg:text-5xl">{formatLevel(featured.value)}</p>
+            <div className="mt-2 h-20 min-[600px]:mt-4 min-[600px]:h-36 lg:h-52">
+              <Spark data={series} positive={featured.changePercent >= 0} dot glow label={`${indexName(featured)} recent price trend`} />
+            </div>
+            <div className="mt-4 max-[599px]:hidden">{chips}</div>
+          </section>
+
+          {/* Technical indicators + trend projection */}
+          <section aria-label="Technical indicators" className="o-tech ps-card p-3 min-[600px]:p-5">
+            <div className="mb-2 flex items-baseline justify-between gap-2 min-[600px]:mb-3">
+              <H>Technical Indicators</H>
+              <span className="text-xs text-[var(--text-muted)]">{indexName(featured)}</span>
+            </div>
+            <div className="tech-inner">
+              <ul className="grid grid-cols-2 gap-2">
+                {indicators.map((ind) => (
+                  <li key={ind.key} className="tile relative p-2 min-[600px]:p-2.5">
+                    {compact && <Hit label={ind.name} onOpen={() => setDetail({ kind: 'indicator', key: ind.key })} />}
+                    <p className="truncate pr-4 text-xs font-semibold text-[var(--text-secondary)]">
+                      <span className="min-[420px]:hidden">{ind.short}</span>
+                      <span className="hidden min-[420px]:inline">{ind.name}</span>
+                    </p>
+                    <div className="my-1 h-6 min-[600px]:h-8"><MiniLines lines={ind.lines} /></div>
+                    <p className="text-sm font-bold tabular-nums">{ind.value}</p>
+                    <p className="text-xs text-[var(--text-muted)] max-[599px]:sr-only">{ind.state}</p>
+                  </li>
+                ))}
+              </ul>
+              <div className="tile relative flex flex-col p-2 min-[600px]:p-3">
+                {compact && <Hit label="Trend projection" onOpen={() => setDetail({ kind: 'projection' })} />}
+                <p className="truncate pr-4 text-xs font-semibold text-[var(--text-secondary)]">
+                  <span className="min-[420px]:hidden">Trend</span><span className="hidden min-[420px]:inline">Trend projection</span>
+                </p>
+                <div className="my-1 min-h-14 flex-1 min-[600px]:my-2 min-[600px]:min-h-24">
+                  {proj ? <Spark data={proj.history} projected={proj.projected} positive={proj.driftPct >= 0} area={false} label="Recent trend with dotted projection" /> : null}
+                </div>
+                {proj ? <Change value={proj.driftPct} className="text-sm" /> : <p className="text-sm">—</p>}
+                <p className="mt-1 text-xs text-[var(--text-muted)]">
+                  <span className="min-[600px]:hidden">Not advice</span>
+                  <span className="max-[599px]:hidden">Straight-line extension of the recent trend. Not a forecast or advice.</span>
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* Watchlist */}
+          <section aria-label="Watchlist" className="o-watch ps-card p-3 min-[600px]:p-5">
+            <div className="mb-2 flex items-center justify-between gap-2 min-[600px]:mb-3">
+              <H>Watchlist</H>
+              <button type="button" onClick={() => onNavigate('watchlist')} className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold tone-up">View all <ChevronRight aria-hidden="true" className="h-4 w-4" /></button>
+            </div>
+            {watched.length ? (
+              <ul className="watch-row">
+                {watched.map((s) => (
+                  <li key={s.ticker}>
+                    <button type="button" onClick={() => (compact ? setDetail({ kind: 'stock', ticker: s.ticker }) : onSelectStock(s.ticker))} className="tile block w-full p-2 text-left hover:brightness-125 min-[600px]:p-3">
+                      <span className="flex items-center justify-between gap-2 max-[599px]:flex-col max-[599px]:items-start max-[599px]:gap-0">
+                        <span className="text-xs font-bold min-[600px]:text-base">{s.ticker}</span>
+                        <Change value={s.changePercent} className="text-xs" />
+                      </span>
+                      <span className="mt-0.5 block truncate text-sm font-semibold tabular-nums min-[600px]:text-base">{formatPrice(s.price, s.currency)}</span>
+                      <span className="mt-1 block h-5 min-[600px]:mt-2 min-[600px]:h-8"><Spark data={s.sparkline} positive={s.changePercent >= 0} area={false} /></span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-[var(--text-secondary)]">Nothing here yet. Open any stock and add it to your watchlist.</p>
+            )}
+          </section>
+
+          {/* Live activity */}
+          <section aria-label="Live activity" className="o-live ps-card flex items-center gap-2 p-2.5 min-[600px]:gap-3 min-[600px]:px-5 min-[600px]:py-3">
+            <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]"><Radio aria-hidden="true" className="h-4 w-4 tone-up" /><span className="max-[399px]:sr-only">Live</span></span>
+            <p className="min-w-0 flex-1 truncate text-sm">
+              {top ? (<><strong>{top.ticker}</strong> {formatPrice(top.price, top.currency)} <Change value={top.changePercent} /></>) : 'Waiting for live quotes…'}
+            </p>
+            <button type="button" onClick={onOpenAlerts} className="chip shrink-0 text-[var(--text-secondary)] max-[599px]:hidden">Alerts</button>
+          </section>
+        </div>
+
+        <div className="dash-right">
+          <div className="dash-pair">
+            {/* Market sentiment */}
+            <section aria-label="Market sentiment" className="ps-card flex flex-col p-3 min-[600px]:p-5">
+              {compact && <Hit label="Market sentiment" onOpen={() => setDetail({ kind: 'sentiment' })} />}
+              <H>Market Sentiment</H>
+              <div className="flex flex-1 flex-col justify-center py-2 min-[600px]:py-3"><Gauge value={breadth} label={mood} /></div>
+              <p className="text-xs text-[var(--text-secondary)]">
+                <span className="min-[600px]:hidden">{upCount} of {stocks.length} up</span>
+                <span className="max-[599px]:hidden">{upCount} of {stocks.length} tracked stocks are up today.</span>
+              </p>
+            </section>
+
+            {/* AI analyst, written from the live numbers */}
+            <section aria-label="PeekStox AI analyst" className="ps-card flex flex-col p-3 min-[600px]:p-5">
+              {compact && <Hit label="AI analyst" onOpen={() => setDetail({ kind: 'ai' })} />}
+              <div className="flex items-center justify-between gap-2"><H>AI Analyst</H><Sparkles aria-hidden="true" className="h-4 w-4 tone-up max-[599px]:hidden" /></div>
+              <div className="flex flex-1 items-center gap-2 py-2 min-[600px]:gap-3 min-[600px]:py-3">
+                <span aria-hidden="true" className="ps-orb h-9 w-9 shrink-0 min-[600px]:h-14 min-[600px]:w-14" />
+                <p className="line-clamp-4 text-xs leading-relaxed text-[var(--text-secondary)] min-[600px]:text-sm">
+                  Breadth reads <strong className="text-[var(--text-primary)]">{mood.toLowerCase()}</strong> at {breadth}%.
+                  {top && <> Biggest mover: <strong className="text-[var(--text-primary)]">{top.ticker}</strong> <Change value={top.changePercent} />.</>}
+                </p>
+              </div>
+              <button type="button" onClick={() => onNavigate('assistant')} className="inline-flex min-h-11 items-center gap-1 self-start rounded-lg text-sm font-semibold tone-up max-[599px]:hidden">
+                Ask AI <ChevronRight aria-hidden="true" className="h-4 w-4" />
+              </button>
+            </section>
+          </div>
+
+          {/* News */}
+          <section aria-label="Latest news" className="o-news ps-card p-3 min-[600px]:p-5">
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <H>News</H>
+              <button type="button" onClick={() => onNavigate('news')} className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold tone-up">All news <ChevronRight aria-hidden="true" className="h-4 w-4" /></button>
+            </div>
+            <ul className="divide-y divide-[var(--border-color)]">
+              {newsItems.map((n, idx) => {
+                const body = (
+                  <span className="flex items-center gap-3 py-2.5 min-[600px]:py-3">
+                    {n.img && <img src={n.img} alt="" loading="lazy" className="h-10 w-10 shrink-0 rounded-lg object-cover min-[600px]:h-12 min-[600px]:w-12" />}
+                    <span className="min-w-0 flex-1">
+                      <span className="line-clamp-2 block text-sm font-semibold">{n.title}</span>
+                      <span className="mt-0.5 block text-xs text-[var(--text-muted)]">{[n.source, n.when].filter(Boolean).join(' · ')}</span>
+                    </span>
+                  </span>
+                );
+                return (
+                  <li key={idx}>
+                    {compact ? (
+                      <button type="button" onClick={() => setDetail({ kind: 'news', index: idx })} aria-haspopup="dialog" className="block w-full text-left">{body}</button>
+                    ) : n.href ? (
+                      <a href={n.href} target="_blank" rel="noopener noreferrer" className="block">{body}</a>
+                    ) : body}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        </div>
+      </div>
+
+      {view && <DetailSheet title={view.title} onClose={() => setDetail(null)}>{view.body}</DetailSheet>}
+    </>
+  );
+}
+```
+
+### FILE: src/App.tsx
+App shell: state, live quotes, alerts, hash routing, adaptive layout.
+
+```tsx
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { StockQuote, GlobalIndex, UserProfile, UserAlert, MarketNotification } from './types';
+import { VALIDATION_STOCKS, GLOBAL_INDICES, MOCK_NEWS } from './data/mockStocks';
+import { Navbar } from './components/Navbar';
+import { Sidebar } from './components/Sidebar';
+import { BottomNav } from './components/BottomNav';
+import { Toast, ToastData } from './components/Toast';
+import { GlobalSearchModal } from './components/GlobalSearchModal';
+import { AlertsCenterModal } from './components/AlertsCenterModal';
+import { AuthModal } from './components/AuthModal';
+import { useDeviceLayout } from './hooks/useDeviceLayout';
+import { NAV } from './config/navigation';
+import { formatSignedPercent, nowTime } from './utils/market';
+
+// Views
+import { DashboardView } from './views/DashboardView';
+import { StockExplorerView } from './views/StockExplorerView';
+import { CompareView } from './views/CompareView';
+import { AlgoLabView } from './views/AlgoLabView';
+import { AIResearchView } from './views/AIResearchView';
+import { WatchlistView } from './views/WatchlistView';
+import { MarketOverviewView } from './views/MarketOverviewView';
+import { NewsCenterView } from './views/NewsCenterView';
+import { SettingsView } from './views/SettingsView';
+
+/* ---------- Routing: the URL hash is mirrored from state ----------
+   #/dashboard, #/explorer/AAPL, #/news ...  Back/forward and shared links work. */
+const VIEW_IDS = Object.keys(NAV);
+const DEFAULT_TICKER = 'AAPL';
+const isViewId = (v: string) => VIEW_IDS.includes(v);
+
+function parseRoute() {
+  const [, rawView = '', rawTicker = ''] = window.location.hash.replace(/^#/, '').split('/');
+  let ticker = '';
+  try {
+    ticker = decodeURIComponent(rawTicker);
+  } catch {
+    /* malformed hash: ignore the ticker */
+  }
+  return { view: isViewId(rawView) ? rawView : 'dashboard', ticker };
+}
+const buildPath = (view: string, ticker: string) =>
+  view === 'explorer' && ticker ? `/explorer/${encodeURIComponent(ticker)}` : `/${view}`;
+
+const LIVE_SOURCE = 'Yahoo Finance (Live)';
+const hasSpark = (s?: number[]) => Array.isArray(s) && s.length > 2;
+
+function mergeLiveQuote(s: StockQuote, live: any): StockQuote {
+  return {
+    ...s,
+    price: live.price,
+    change: live.change,
+    changePercent: live.changePercent,
+    currency: live.currency || s.currency,
+    exchange: live.exchange || s.exchange,
+    previousClose: live.previousClose ?? s.previousClose,
+    dayHigh: live.dayHigh ?? s.dayHigh,
+    dayLow: live.dayLow ?? s.dayLow,
+    volume: live.volume ?? s.volume,
+    yearHigh: live.yearHigh ?? s.yearHigh,
+    yearLow: live.yearLow ?? s.yearLow,
+    sparkline: hasSpark(live.sparkline) ? live.sparkline : s.sparkline,
+    lastUpdated: nowTime(),
+    dataSource: LIVE_SOURCE,
+  };
+}
+
+const GUEST_USER = (): UserProfile => ({
+  id: `usr_guest_${Date.now()}`,
+  name: 'Guest Researcher',
+  email: 'guest@peekstox.local',
+  role: 'member',
+  preferredMarket: 'GLOBAL',
+  baseCurrency: 'USD',
+  defaultTimeframe: '1M',
+  emailAlertsEnabled: false,
+  inAppAlertsEnabled: true,
+  soundEnabled: true,
+  watchlist: ['AAPL', 'NVDA', 'RELIANCE'],
+  alerts: [],
+});
+
+export default function App() {
+  const layout = useDeviceLayout();
+
+  const [activeView, setActiveView] = useState<string>(() => parseRoute().view);
+  const [selectedStockTicker, setSelectedStockTicker] = useState<string>(() => parseRoute().ticker || DEFAULT_TICKER);
+
+  // Follow the OS theme until the person picks one explicitly.
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('pkstox_theme');
+      if (saved) return saved === 'dark';
+    } catch {
+      /* storage blocked */
+    }
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? true;
+  });
+
+  // Live Market Quotes State (connected to Yahoo Finance)
+  const [stocks, setStocks] = useState<StockQuote[]>(VALIDATION_STOCKS);
+  const [indices, setIndices] = useState<GlobalIndex[]>(GLOBAL_INDICES);
+  const [isLiveConnected, setIsLiveConnected] = useState(true);
+  const [lastLiveSyncTime, setLastLiveSyncTime] = useState<Date | null>(null);
+  const [isSyncingLiveQuotes, setIsSyncingLiveQuotes] = useState(false);
+
+  // Modals state
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isAlertsOpen, setIsAlertsOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+
+  const [activeToast, setActiveToast] = useState<ToastData | null>(null);
+  const dismissToast = useCallback(() => setActiveToast(null), []);
+  const showToast = useCallback((t: Omit<ToastData, 'id'> & { id?: string }) => {
+    setActiveToast({ ...t, id: t.id ?? `toast_${Date.now()}` });
+  }, []);
+
+  // User Profile & Authentication State
+  const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
+    try {
+      const saved = localStorage.getItem('pkstox_user');
+      if (saved) return JSON.parse(saved);
+    } catch {
+      /* fall through to defaults */
+    }
+    return {
+      id: 'usr_001',
+      name: 'Devi Bharati',
+      email: 'devibharati157@gmail.com',
+      avatarUrl: '/src/assets/images/avatar_user_profile_1792044661545.jpg',
+      role: 'researcher',
+      preferredMarket: 'GLOBAL',
+      baseCurrency: 'USD',
+      defaultTimeframe: '1M',
+      emailAlertsEnabled: true,
+      inAppAlertsEnabled: true,
+      soundEnabled: true,
+      watchlist: ['AAPL', 'MSFT', 'NVDA', 'RELIANCE', 'HDFCBANK', 'GOOGL'],
+      alerts: [
+        { id: 'alt_001', ticker: 'AAPL', companyName: 'Apple Inc.', conditionType: 'price_above', targetValue: 240.0, note: 'Breakout watch above resistance level', isActive: true, createdAt: new Date().toISOString(), isTriggered: false },
+        { id: 'alt_002', ticker: 'NVDA', companyName: 'NVIDIA Corporation', conditionType: 'rsi_overbought', targetValue: 70.0, note: 'Momentum take-profit review', isActive: true, createdAt: new Date().toISOString(), isTriggered: false },
+        { id: 'alt_003', ticker: 'RELIANCE', companyName: 'Reliance Industries Ltd.', conditionType: 'change_percent', targetValue: 2.0, note: 'NSE session swing alert', isActive: true, createdAt: new Date().toISOString(), isTriggered: false },
+      ],
+    };
+  });
+
+  // The polling interval below is created once, so it must read the *latest*
+  // user through a ref. Reading `currentUser` directly froze alerts at their
+  // first-render values (new, deleted and toggled alerts were ignored).
+  const userRef = useRef(currentUser);
+  useEffect(() => {
+    userRef.current = currentUser;
+  }, [currentUser]);
+
+  // Notifications State
+  const [notifications, setNotifications] = useState<MarketNotification[]>([
+    { id: 'notif-1', ticker: 'AAPL', title: 'AAPL Price Milestone Alert', message: 'Apple Inc. advanced +1.35% intraday to reach $234.85, approaching the $240.00 watch target.', timestamp: new Date().toISOString(), type: 'price', isRead: false, severity: 'bullish' },
+    { id: 'notif-2', ticker: 'NVDA', title: 'NVDA Technical Momentum Trigger', message: 'NVIDIA RSI(14) reading elevated to 68.2 following hyperscaler CoWoS packaging capacity expansion news.', timestamp: new Date(Date.now() - 3600000).toISOString(), type: 'indicator', isRead: false, severity: 'bullish' },
+  ]);
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  /* ---------- Effects ---------- */
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('pkstox_user', JSON.stringify(currentUser));
+    } catch {
+      /* storage full or blocked */
+    }
+  }, [currentUser]);
+
+  // State -> URL (push so Back works), and keep the tab title in step.
+  useEffect(() => {
+    const target = `#${buildPath(activeView, selectedStockTicker)}`;
+    if (window.location.hash !== target) {
+      window.history[window.location.hash === '' ? 'replaceState' : 'pushState'](null, '', target);
+    }
+    document.title = `${NAV[activeView]?.label ?? 'Markets'} · PeekStox`;
+  }, [activeView, selectedStockTicker]);
+
+  // URL -> state (Back, Forward, edited address bar).
+  useEffect(() => {
+    const onPop = () => {
+      const r = parseRoute();
+      setActiveView(r.view);
+      if (r.ticker) setSelectedStockTicker(r.ticker);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  // After a screen change, reset scroll and move focus to the content so
+  // keyboard and screen-reader users start at the top of the new screen.
+  const mainRef = useRef<HTMLElement>(null);
+  const firstView = useRef(true);
+  useEffect(() => {
+    if (firstView.current) {
+      firstView.current = false;
+      return;
+    }
+    window.scrollTo({ top: 0 });
+    mainRef.current?.focus({ preventScroll: true });
+  }, [activeView]);
+
+  // Global Keyboard Shortcuts (⌘K / Ctrl+K for search)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsSearchOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Theme sync (class, native controls, and the browser/status bar colour)
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle('dark', isDark);
+    root.classList.toggle('light', !isDark);
+    root.style.colorScheme = isDark ? 'dark' : 'light';
+    let meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.setAttribute('name', 'theme-color');
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute('content', isDark ? '#0A0B0D' : '#F4ECDD');
+  }, [isDark]);
+
+  const toggleTheme = () => {
+    const next = !isDark;
+    setIsDark(next);
+    try {
+      localStorage.setItem('pkstox_theme', next ? 'dark' : 'light');
+    } catch {
+      /* ignore */
+    }
+  };
+
+  /* ---------- Sound ---------- */
+  const audioRef = useRef<AudioContext | null>(null);
+  const playAlertChime = () => {
+    if (!userRef.current.soundEnabled) return;
+    try {
+      const Ctor = window.AudioContext || (window as any).webkitAudioContext;
+      if (!audioRef.current) audioRef.current = new Ctor(); // reuse one context; browsers cap how many you can open
+      const ctx = audioRef.current;
+      if (ctx.state === 'suspended') void ctx.resume();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.35);
+    } catch {
+      /* AudioContext may be blocked before interaction */
+    }
+  };
+
+  /* ---------- Navigation helpers ---------- */
+  const navigate = useCallback((view: string) => {
+    if (isViewId(view)) setActiveView(view);
+  }, []);
+  const openStock = (ticker: string) => {
+    setSelectedStockTicker(ticker);
+    setActiveView('explorer');
+  };
+  const openAlertsFor = (ticker: string) => {
+    setSelectedStockTicker(ticker);
+    setIsAlertsOpen(true);
+  };
+
+  /* ---------- Watchlist & alerts ---------- */
+  const handleToggleWatchlist = (ticker: string) => {
+    setCurrentUser((prev) => {
+      const exists = prev.watchlist.includes(ticker);
+      return { ...prev, watchlist: exists ? prev.watchlist.filter((t) => t !== ticker) : [...prev.watchlist, ticker] };
+    });
+  };
+
+  const handleCreateAlert = (alertData: Omit<UserAlert, 'id' | 'createdAt' | 'isTriggered'>) => {
+    const newAlert: UserAlert = { ...alertData, id: `alt_${Date.now()}`, createdAt: new Date().toISOString(), isTriggered: false };
+    setCurrentUser((prev) => ({ ...prev, alerts: [newAlert, ...prev.alerts] }));
+    showToast({
+      title: 'Market Alert Configured',
+      message: `Alert activated for ${newAlert.ticker} on ${newAlert.conditionType.replace('_', ' ')}.`,
+      severity: 'info',
+      duration: 4000,
+    });
+  };
+
+  const handleDeleteAlert = (id: string) =>
+    setCurrentUser((prev) => ({ ...prev, alerts: prev.alerts.filter((a) => a.id !== id) }));
+
+  const handleToggleAlert = (id: string, active: boolean) =>
+    setCurrentUser((prev) => ({ ...prev, alerts: prev.alerts.map((a) => (a.id === id ? { ...a, isActive: active } : a)) }));
+
+  const raiseNotification = (n: MarketNotification) => {
+    setNotifications((prev) => [n, ...prev]);
+    playAlertChime();
+    showToast({ id: n.id, title: n.title, message: n.message, severity: n.severity === 'bearish' ? 'bearish' : 'bullish', duration: 5000 });
+  };
+
+  const checkAlertsAgainstQuotes = (liveQuotes: Record<string, any>) => {
+    userRef.current.alerts.forEach((alert) => {
+      if (!alert.isActive || alert.isTriggered) return;
+      const live = liveQuotes[alert.ticker];
+      if (!live) return;
+
+      let reason = '';
+      if (alert.conditionType === 'price_above' && alert.targetValue && live.price >= alert.targetValue) {
+        reason = `${alert.ticker} climbed to $${live.price.toFixed(2)}, crossing above watch target of $${alert.targetValue.toFixed(2)}.`;
+      } else if (alert.conditionType === 'price_below' && alert.targetValue && live.price <= alert.targetValue) {
+        reason = `${alert.ticker} dropped to $${live.price.toFixed(2)}, breaching below floor threshold of $${alert.targetValue.toFixed(2)}.`;
+      } else if (alert.conditionType === 'change_percent' && alert.targetValue && Math.abs(live.changePercent) >= alert.targetValue) {
+        reason = `${alert.ticker} intraday change reached ${formatSignedPercent(live.changePercent)} (threshold: ${alert.targetValue}%).`;
+      }
+      if (!reason) return;
+
+      setCurrentUser((prev) => ({ ...prev, alerts: prev.alerts.map((a) => (a.id === alert.id ? { ...a, isTriggered: true } : a)) }));
+      raiseNotification({
+        id: `notif_${Date.now()}_${alert.id}`,
+        ticker: alert.ticker,
+        title: `Live Alert Triggered: ${alert.ticker}`,
+        message: reason,
+        timestamp: new Date().toISOString(),
+        type: 'price',
+        isRead: false,
+        severity: live.changePercent >= 0 ? 'bullish' : 'bearish',
+      });
+    });
+  };
+
+  /* ---------- Live quotes ---------- */
+  const fetchLiveQuotes = async (isManual = false, signal?: AbortSignal) => {
+    setIsSyncingLiveQuotes(true);
+    try {
+      const res = await fetch('/api/market/live-quotes', { signal });
+      if (!res.ok) {
+        setIsLiveConnected(false);
+        return;
+      }
+      const data = await res.json();
+      const liveQuotes = data?.quotes || {};
+
+      setStocks((prev) => prev.map((s) => (liveQuotes[s.ticker] ? mergeLiveQuote(s, liveQuotes[s.ticker]) : s)));
+      setIndices((prev) =>
+        prev.map((idx) => {
+          const live = liveQuotes[idx.id];
+          if (!live) return idx;
+          return {
+            ...idx,
+            value: live.price,
+            change: live.change,
+            changePercent: live.changePercent,
+            high: live.dayHigh ?? idx.high,
+            low: live.dayLow ?? idx.low,
+            sparkline: hasSpark(live.sparkline) ? live.sparkline : idx.sparkline,
+            status: 'Live',
+            lastUpdated: nowTime(),
+          };
+        }),
+      );
+
+      setIsLiveConnected(true);
+      setLastLiveSyncTime(new Date());
+      if (isManual) {
+        showToast({
+          title: 'Yahoo Finance Live Sync',
+          message: `Synchronized real-time quotes across ${Object.keys(liveQuotes).length} global assets.`,
+          severity: 'bullish',
+          duration: 3000,
+        });
+      }
+      checkAlertsAgainstQuotes(liveQuotes);
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return;
+      setIsLiveConnected(false);
+    } finally {
+      setIsSyncingLiveQuotes(false);
+    }
+  };
+
+  const fetchSingleLiveQuote = async (ticker: string) => {
+    setIsSyncingLiveQuotes(true);
+    try {
+      const res = await fetch(`/api/market/live/${encodeURIComponent(ticker)}`);
+      if (!res.ok) return;
+      const live = (await res.json())?.quote;
+      if (!live) return;
+      setStocks((prev) => {
+        const key = ticker.toUpperCase();
+        if (prev.some((s) => s.ticker.toUpperCase() === key)) {
+          return prev.map((s) => (s.ticker.toUpperCase() === key ? mergeLiveQuote(s, live) : s));
+        }
+        const newStock: StockQuote = {
+          ticker: live.ticker || ticker,
+          name: live.shortName || ticker,
+          exchange: live.exchange || 'Global Market',
+          country: 'International',
+          currency: live.currency || 'USD',
+          sector: 'Global Equity',
+          industry: 'Diversified',
+          price: live.price,
+          change: live.change,
+          changePercent: live.changePercent,
+          previousClose: live.previousClose ?? live.price,
+          open: live.previousClose ?? live.price,
+          dayHigh: live.dayHigh ?? live.price,
+          dayLow: live.dayLow ?? live.price,
+          yearHigh: live.yearHigh ?? Number((live.price * 1.25).toFixed(2)),
+          yearLow: live.yearLow ?? Number((live.price * 0.75).toFixed(2)),
+          volume: live.volume || 1000000,
+          avgVolume: live.volume || 1000000,
+          marketCap: live.price * 50000000,
+          description: `${live.shortName || ticker} is a globally traded asset tracked with live real-time price feeds via Yahoo Finance.`,
+          lastUpdated: nowTime(),
+          dataSource: LIVE_SOURCE,
+          sparkline: hasSpark(live.sparkline) ? live.sparkline : [live.price],
+        };
+        return [newStock, ...prev];
+      });
+    } catch (e) {
+      console.warn('Single quote fetch error:', e);
+    } finally {
+      setIsSyncingLiveQuotes(false);
+    }
+  };
+
+  const handleSelectStock = (ticker: string) => {
+    openStock(ticker);
+    fetchSingleLiveQuote(ticker);
+  };
+
+  // Poll every 15s, but not while the tab is hidden (saves battery and data on phones).
+  useEffect(() => {
+    const controller = new AbortController();
+    const tick = () => {
+      if (!document.hidden) fetchLiveQuotes(false, controller.signal).catch(() => {});
+    };
+    tick();
+    const interval = setInterval(tick, 15000);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', tick);
+    };
+  }, []);
+
+  const handleSimulateAlertTrigger = () => {
+    const s = stocks[Math.floor(Math.random() * stocks.length)] || stocks[0];
+    raiseNotification({
+      id: `notif_${Date.now()}`,
+      ticker: s.ticker,
+      title: `Live Alert: ${s.ticker} Movement`,
+      message: `${s.name} crossed the threshold! Current price: ${s.currency === 'INR' ? '₹' : '$'}${s.price.toFixed(2)} (${formatSignedPercent(s.changePercent)}).`,
+      timestamp: new Date().toISOString(),
+      type: 'price',
+      isRead: false,
+      severity: s.changePercent >= 0 ? 'bullish' : 'bearish',
+    });
+  };
+
+  /* ---------- Account ---------- */
+  const handleLogin = async (email: string) => setCurrentUser((prev) => ({ ...prev, email, name: email.split('@')[0] }));
+  const handleRegister = async (data: Partial<UserProfile>) => setCurrentUser((prev) => ({ ...prev, ...data, id: `usr_${Date.now()}` }));
+  const handleUpdateProfile = async (updated: Partial<UserProfile>) => setCurrentUser((prev) => ({ ...prev, ...updated }));
+  const handleLogout = () => {
+    setCurrentUser(GUEST_USER());
+    setIsAuthOpen(false);
+  };
+
+  /* ---------- Render ---------- */
+  // A foldable spanning two screens gives the content column only one screen's width.
+  const contentLayout = layout.isSpanned ? 'medium' : layout.mode;
+
+  return (
+    <div
+      className="app-root bg-[var(--bg-main)] text-[var(--text-primary)] transition-colors"
+      data-layout={contentLayout}
+      data-bottom-nav={layout.showBottomNav}
+    >
+      <a
+        href="#main"
+        onClick={(e) => {
+          e.preventDefault(); // keep the hash router out of this
+          mainRef.current?.focus();
+        }}
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:rounded-lg focus:bg-[var(--bg-card)] focus:px-4 focus:py-2 focus:text-sm focus:font-semibold"
+      >
+        Skip to main content
+      </a>
+
+      <Toast toast={activeToast} onDismiss={dismissToast} />
+
+      <div className="app-shell">
+        {layout.showSidebar && (
+          <div className="app-nav-slot">
+            <Sidebar
+              activeView={activeView}
+              onNavigate={navigate}
+              unreadAlertsCount={unreadCount}
+              onOpenAlerts={() => setIsAlertsOpen(true)}
+              user={currentUser}
+              onOpenAuth={() => setIsAuthOpen(true)}
+            />
+          </div>
+        )}
+
+        <div className="app-column">
+          <Navbar
+            user={currentUser}
+            notifications={notifications}
+            isDark={isDark}
+            onToggleTheme={toggleTheme}
+            onOpenSearch={() => setIsSearchOpen(true)}
+            onOpenAlerts={() => setIsAlertsOpen(true)}
+            onOpenAuth={() => setIsAuthOpen(true)}
+            activeView={activeView}
+            onNavigate={navigate}
+            isLiveConnected={isLiveConnected}
+            isSyncingLiveQuotes={isSyncingLiveQuotes}
+            lastLiveSyncTime={lastLiveSyncTime}
+            onRefreshQuotes={() => fetchLiveQuotes(true)}
+            liveIndices={indices}
+            featuredStocks={stocks}
+            onSelectStock={openStock}
+            showBrand={!layout.showSidebar}
+            compact={layout.mode === 'compact'}
+          />
+
+          <main id="main" ref={mainRef} tabIndex={-1} className="app-main outline-none">
+            <div className="app-content">
+              {activeView === 'dashboard' && (
+                <DashboardView indices={indices} stocks={stocks} news={MOCK_NEWS} watchlist={currentUser.watchlist} onSelectStock={openStock} onNavigate={navigate} onOpenAlerts={() => setIsAlertsOpen(true)} />
+              )}
+              {activeView === 'explorer' && (
+                <StockExplorerView selectedTicker={selectedStockTicker} stocks={stocks} indices={indices} watchlist={currentUser.watchlist} onToggleWatchlist={handleToggleWatchlist} onSelectStock={setSelectedStockTicker} onOpenAlertForStock={openAlertsFor} onRefreshSingleQuote={fetchSingleLiveQuote} isSyncing={isSyncingLiveQuotes} />
+              )}
+              {activeView === 'compare' && <CompareView stocks={stocks} onSelectStock={openStock} />}
+              {activeView === 'algo' && <AlgoLabView stocks={stocks} onSelectStock={openStock} />}
+              {activeView === 'assistant' && (
+                <AIResearchView stocks={stocks} activeStockTicker={selectedStockTicker} onSelectStock={setSelectedStockTicker} />
+              )}
+              {activeView === 'watchlist' && (
+                <WatchlistView watchlist={currentUser.watchlist} stocks={stocks} onSelectStock={openStock} onRemoveFromWatchlist={handleToggleWatchlist} onOpenSearch={() => setIsSearchOpen(true)} onOpenAlertForStock={openAlertsFor} />
+              )}
+              {activeView === 'overview' && <MarketOverviewView indices={indices} stocks={stocks} onSelectStock={handleSelectStock} />}
+              {activeView === 'news' && <NewsCenterView news={MOCK_NEWS} stocks={stocks} onSelectStock={openStock} />}
+              {(activeView === 'settings' || activeView === 'about') && (
+                <SettingsView user={currentUser} isDark={isDark} initialTab={activeView === 'about' ? 'about' : 'preferences'} onToggleTheme={toggleTheme} onUpdateProfile={handleUpdateProfile} onOpenAuth={() => setIsAuthOpen(true)} onLogout={handleLogout} onNavigate={navigate} />
+              )}
+            </div>
+          </main>
+        </div>
+      </div>
+
+      {layout.showBottomNav && (
+        <BottomNav activeView={activeView} onNavigate={navigate} onOpenAlerts={() => setIsAlertsOpen(true)} unreadAlertsCount={unreadCount} />
+      )}
+
+      <GlobalSearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} stocks={stocks} onSelectStock={openStock} />
+
+      <AlertsCenterModal isOpen={isAlertsOpen} onClose={() => setIsAlertsOpen(false)} stocks={stocks} alerts={currentUser.alerts} notifications={notifications} onCreateAlert={handleCreateAlert} onDeleteAlert={handleDeleteAlert} onToggleAlert={handleToggleAlert} onMarkAllNotificationsRead={() => setNotifications((p) => p.map((n) => ({ ...n, isRead: true })))} onClearNotifications={() => setNotifications([])} onSimulateAlertTrigger={handleSimulateAlertTrigger} />
+
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} currentUser={currentUser} onLogin={handleLogin} onRegister={handleRegister} onUpdateProfile={handleUpdateProfile} onLogout={handleLogout} />
+    </div>
+  );
+}
+```
+
+=====================================================================
+END OF FILES. After applying them, run the acceptance checks in section 6.

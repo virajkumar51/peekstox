@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0A0B0D" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>PeekStox — Global Stock Market Intelligence & Analytics</title>
+    <meta name="description" content="PeekStox is a premier global stock-market intelligence platform founded by Viraj Kumar, Varshith Reddy, and Suraj R, with product architecture and UI systems engineered by Vihan Thamke, featuring institutional-grade analytics, quantitative signal models, and PeekStox AI research." />
+    <meta property="og:title" content="PeekStox — Global Stock Market Intelligence & Analytics" />
+    <meta property="og:description" content="PeekStox is a premier global stock-market intelligence platform founded by Viraj Kumar, Varshith Reddy, and Suraj R, with product architecture and UI systems engineered by Vihan Thamke, featuring institutional-grade analytics, quantitative signal models, and PeekStox AI research." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script>
+      // 1. Ensure window.fetch is writable and has both getter and setter.
+      // This prevents "TypeError: Cannot set property fetch of #<Window> which has only a getter"
+      // when test runners, sandboxes, or browser extensions attempt to wrap/intercept window.fetch.
+      (function () {
+        try {
+          var origFetch = window.fetch;
+          var activeFetch = typeof origFetch === 'function' ? origFetch.bind(window) : origFetch;
+
+          var fetchDescriptor = {
+            get: function () {
+              return activeFetch;
+            },
+            set: function (newFetch) {
+              activeFetch = newFetch;
+            },
+            configurable: true,
+            enumerable: true,
+          };
+
+          try {
+            Object.defineProperty(window, 'fetch', fetchDescriptor);
+          } catch (_) {}
+
+          if (typeof Window !== 'undefined' && Window.prototype) {
+            try {
+              Object.defineProperty(Window.prototype, 'fetch', fetchDescriptor);
+            } catch (_) {}
+          }
+
+          if (typeof globalThis !== 'undefined' && globalThis !== window) {
+            try {
+              Object.defineProperty(globalThis, 'fetch', fetchDescriptor);
+            } catch (_) {}
+          }
+        } catch (_) {}
+      })();
+
+      // 2. Gracefully silence benign network/transport errors in sandbox environment
+      window.addEventListener('error', function (e) {
+        var msg = (e && e.message) ? String(e.message) : '';
+        var src = (e && e.filename) ? String(e.filename) : '';
+        if (
+          msg.includes('WebSocket') ||
+          msg.includes('NetworkError') ||
+          msg.includes('Failed to fetch') ||
+          msg.includes('Load failed') ||
+          msg.includes('Cannot set property fetch') ||
+          src.includes('chrome-extension://') ||
+          src.includes('@vite/client') ||
+          (e && e.error && e.error.stack && (
+            e.error.stack.includes('createWebSocketModuleRunnerTransport') ||
+            e.error.stack.includes('chrome-extension://')
+          ))
+        ) {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+          return true;
+        }
+      }, true);
+
+      window.addEventListener('unhandledrejection', function (e) {
+        var reason = e && e.reason;
+        var msg = (reason && reason.message) ? String(reason.message) : (typeof reason === 'string' ? reason : '');
+        var stack = (reason && reason.stack) ? String(reason.stack) : '';
+        if (
+          msg.includes('WebSocket') ||
+          msg.includes('NetworkError') ||
+          msg.includes('Failed to fetch') ||
+          msg.includes('Load failed') ||
+          msg.includes('Cannot set property fetch') ||
+          stack.includes('chrome-extension://') ||
+          stack.includes('createWebSocketModuleRunnerTransport')
+        ) {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+        }
+      }, true);
+    </script>
+  </head>
+  <body class="antialiased selection:bg-emerald-500/20 selection:text-emerald-300">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

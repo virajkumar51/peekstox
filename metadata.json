@@ -1,0 +1,8 @@
+{
+  "name": "peekstox",
+  "description": "A minimalist, AI-powered global stock market research platform providing real-time analytics, predictive insights, and professional financial data.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

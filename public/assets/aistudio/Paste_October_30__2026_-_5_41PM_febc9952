@@ -1,0 +1,650 @@
+# PeekStox: responsive UI + liquid-glass light + bottom-bar liquid shift (one prompt)
+
+Copy everything below this line into your AI coding tool.
+
+---
+
+ROLE
+You are a senior front-end engineer and motion designer working on "PeekStox", a stock-market research
+web app: React + TypeScript + Tailwind CSS v4 (`@import "tailwindcss"`), lucide-react, Vite. It already has
+a dark and a cream light theme, liquid-glass cards, a left sidebar on laptops and a floating glass dock on
+phones. This prompt does THREE jobs in one pass:
+  A. Make the whole UI properly responsive (phone, tablet, laptop, foldable).
+  B. Add "liquid glass light": light that moves across the glass.
+  C. Add the "liquid shift" animation to the phone/tablet bottom bar.
+
+HOW TO USE THIS PROMPT
+1. The "REFERENCE CODE" section at the end contains tested code. Create or overwrite each file at the exact
+   path shown; for CSS, APPEND the given blocks to the end of `src/index.css` (they sit in their own
+   `@layer components` blocks and intentionally override earlier rules). Edit only the files named here.
+2. Keep existing props, data types and API routes. Do not touch other screens, modals or the logo component.
+3. Do not add an animation library. Everything is CSS plus the small hooks shown.
+4. When done, run the acceptance checks in section 5 and report what you could not verify.
+
+=====================================================================
+A. RESPONSIVE UI
+=====================================================================
+Principle: layout follows the space available, never the device name. Detect with `matchMedia` change events
+(one render per breakpoint crossing, not resize spam). Window classes:
+  compact  <600px        phones, foldable cover screen
+  medium   600-1023px    tablet portrait, unfolded foldable, small windows
+  expanded >=1024px      laptops, desktops, tablet landscape
+  extra    >=1280px      Markets screen switches to two independent columns
+  wide     >=1536px      content stops growing and is centred; extra width becomes margin
+
+Rules that always hold
+- Exactly ONE primary navigation at a time: floating dock (compact, medium) OR sidebar (expanded, or a foldable
+  spanning two screens). CSS also hides the dock at >=1024px as a safeguard.
+- Safe areas: `viewport-fit=cover` in the viewport meta tag; pad header, dock and content with
+  `env(safe-area-inset-*)`.
+- Fluid spacing: gutter 16 / 24 / 32px (compact / medium / expanded); card padding 12 / 20 / 24px; card radius 20px.
+- Type scale: page title 20/24/28px; hero number 30/36/48px with tabular numerals; labels 12px uppercase; body 14px;
+  nothing below 12px.
+- Never hide a layout bug with `overflow-x:hidden`. Fix the cause (`min-w-0` on flex/grid children, fixed widths).
+  No horizontal page scroll from 320px up. Layout must survive browser zoom to 200%.
+- Touch targets 44px on touch screens, 32px with a mouse (`pointer: coarse` / `fine`).
+- Every column and grid child gets `min-width: 0`. Images and charts scale with their container.
+
+PHONE (<600px): single column, compact cards (about 1.5 screens tall), floating glass dock, tap a card to enlarge it
+(already implemented; keep). Header = title + 44px icon buttons + Live chip + avatar; no price strip, no theme button.
+TABLET (600-1023px): same dock (wider), 24px gutters, header gains the search field, theme button and a slim live
+price strip (horizontally scrollable, no auto-moving marquee). One column; Sentiment | AI side by side; indicators
+and trend side by side; watchlist 3-6 card grid.
+FOLDABLES: cover screen = Phone. Unfolded flat = Tablet. Spanning two screens (media query
+`(horizontal-viewport-segments: 2)`): sidebar in the left screen, content in the right, an empty gutter exactly the
+hinge width using `env(viewport-segment-width/left/right)`; nothing crosses the hinge; modals, toasts and enlarged
+views open inside ONE screen; the dock is hidden. Browsers without the API fall back to width-based layouts.
+
+LAPTOP RESPONSIVE FACTORS (everything that is added or changes at >=1024px)
+1. Navigation swap: the dock disappears and a 256px sticky glass sidebar appears: brand slot, Primary list, a
+   "TOOLS" group, Market Alerts with unread badge, Settings, About, and the profile card pinned at the bottom. The
+   sidebar scrolls internally if the window is short. Active item = rounded highlighted pill.
+2. Header: page title, a 320-420px search field with a Cmd K / Ctrl K hint (shown only for fine pointers), Live chip
+   with refresh, alerts bell, theme toggle, and the live price strip beneath (indices + top stocks, scrollable).
+3. Content width: 32px gutters, content max 1200px and centred; at >=1536px extra width becomes margin so lines and
+   charts never stretch.
+4. Markets grid: 1024-1279px is one column (Sentiment | AI pair, then indicators, watchlist, live, news).
+   At >=1280px it becomes TWO INDEPENDENT COLUMNS (grid 1.7fr / 1fr, right column at least 320px, `align-items:start`):
+     Left:  hero, Technical Indicators + Trend, Watchlist (3 across), Live Activity.
+     Right: [Sentiment | AI Analyst] side by side, then News directly underneath.
+   Each column is its own flex stack, so there is no empty gap between the Sentiment/AI pair and News.
+5. Scale-up of content: hero number 48px, hero chart ~208px, watchlist as an auto-fill grid of 3-6 cards (min 152px),
+   news shows 5 rows with 48px thumbnails, indicator tiles show full names (Moving Avg, Trend projection) and their
+   state words, "Ask AI" and "Alerts" buttons are visible, notes use full sentences.
+6. Input model: hover lift on interactive cards, light that follows the mouse over cards (part B), visible 2px focus
+   rings, Cmd/Ctrl+K opens search, Esc closes dialogs, logical Tab order, 32px minimum targets.
+7. No tap-to-enlarge: watchlist cards open Explorer, news rows are links (enlarging is a phone-only behaviour).
+8. Live resizing: dragging the window across 600 / 1024 / 1280px swaps sidebar and dock and re-flows the dashboard
+   without a reload and without layout jumps; sticky header and sidebar stay in place; any open enlarged view closes
+   when the layout leaves compact.
+9. Spanned foldables reuse the laptop layout (sidebar left, content right) with the hinge gutter.
+10. Performance: the moving light runs on the hero card and dock only; pointer light uses one delegated listener
+    throttled with requestAnimationFrame; nothing else animates forever.
+
+=====================================================================
+B. LIQUID GLASS LIGHT (moving light on glass)
+=====================================================================
+Goal: the glass should feel lit and alive, subtly. Three layers, all CSS-driven:
+1. Ambient drift: the coloured light behind the app (`.app-root::before`) slowly drifts and breathes
+   (32s, ease-in-out, alternate; translate up to about 2.5% and scale 1 to 1.08). Only `transform` animates.
+2. Specular sweep: a soft diagonal highlight slides across the hero card and the dock every ~10s (it moves during
+   the last 45% of the cycle and rests for the first 55%; the dock is offset by 2.5s so they never flash together).
+   Dark: white at 20% peak. Light: white at 65% peak. It sits above the glass fill and below the content.
+3. Pointer light (mouse and trackpad only): the card under the pointer gets a soft radial highlight (240px) that
+   follows the pointer and fades in 250ms; it is invisible on touch devices. Implemented by the `usePointerLight`
+   hook, which writes `--mx` and `--my` to the hovered `.ps-card` (hero excluded, it already has the sweep).
+Rules: never animate `backdrop-filter` or blur radius; no infinite animation on every card; nothing flashes faster than
+once every 3 seconds (WCAG 2.3.1); `prefers-reduced-motion` = no drift, no sweep, static light;
+`prefers-reduced-transparency` / `prefers-contrast: more` = all light overlays removed; text contrast must stay
+at or above 4.5:1 while the highlight passes behind it (keep peak opacity at or below the values above).
+
+=====================================================================
+C. BOTTOM BAR: LIQUID SHIFT ANIMATION
+=====================================================================
+Goal: the active-tab highlight is one glass droplet ("lens") that moves between tabs like liquid.
+- One lens element (`aria-hidden`) positioned from the active tab's measured left and width (ResizeObserver, so
+  rotation, unfolding and font loading re-measure automatically). No per-tab backgrounds.
+- Movement: transform + width transition 550ms with an overshoot spring `cubic-bezier(0.34, 1.56, 0.64, 1)`.
+- Stretch: while it travels, the lens briefly stretches (`scale` 1 to 1.2 wide and 0.93 tall at 35%, back to 1), 550ms.
+- Light moves with it: the lens carries its own specular highlight (radial white at the top) and a coloured glow
+  underneath (green in dark, warm brown in light), so the "light" shifts with the selection.
+- Icon response: the active icon lifts 1px and scales to 1.12 with the same spring; pressing any tab squishes it to 0.94.
+- "More": when the More sheet opens the lens slides to More, and slides back to the active tab when it closes.
+- First paint: no slide-in from the left (`data-ready` is set one frame after the first measurement).
+- Accessibility: keep `aria-current="page"` on the active tab, visible 12px labels, 52px tall targets, focus rings.
+  `prefers-reduced-motion` = the lens jumps instantly with no stretch, no spring, no squish.
+- Dark and light variants; the dock stays hidden at >=1024px and on spanned foldables.
+- No animation library, no layout shift, no timers longer than 560ms.
+
+=====================================================================
+5. ACCEPTANCE CHECKS
+=====================================================================
+Test at 360, 390, 600, 768, 1024, 1280, 1366, 1440, 1920 in dark and light, with keyboard only, with reduced motion
+on, with browser zoom 200%, and in dual-screen/foldable emulation. Confirm:
+- 390px: no horizontal scroll; floating dock; tapping a tab slides the lens with a small overshoot and stretch; opening
+  More slides the lens to More and back; no slide-in on first load.
+- 1366px: sidebar present, no dock; News sits directly under Sentiment + AI with no gap; moving the mouse over a card
+  shows a soft light that follows it; the hero sweep runs about every 10s.
+- Dragging the window from 1500px to 500px swaps sidebar for dock at 1024px, then re-flows at 600px, without a reload.
+- Reduced motion: no drift, no sweep, lens jumps instantly. Reduced transparency: light overlays gone.
+- Text never below 12px; contrast of text over the moving highlight stays at or above 4.5:1.
+Report what you verified and what you could not.
+
+=====================================================================
+REFERENCE CODE (tested: type-checks, and the CSS compiles with Tailwind v4)
+=====================================================================
+
+### FILE: src/hooks/useDeviceLayout.ts
+Part A. Already in the project: keep as is. Decides compact / medium / expanded and spanned foldables.
+
+```ts
+import { useEffect, useState } from 'react';
+
+/**
+ * Window-size classes (same idea as Material's compact / medium / expanded).
+ * Layout follows the space available, not the device name:
+ *   compact  < 600px     phones, foldables when closed
+ *   medium   600-1023px  tablets, foldables when open, small windows
+ *   expanded >= 1024px   laptops, desktops, large tablets in landscape
+ */
+export type LayoutMode = 'compact' | 'medium' | 'expanded';
+
+export interface DeviceLayout {
+  mode: LayoutMode;
+  /** True when a foldable's window spans two screens (hinge between them). */
+  isSpanned: boolean;
+  showSidebar: boolean;
+  showBottomNav: boolean;
+}
+
+const MEDIUM_MIN = 600;
+const EXPANDED_MIN = 1024;
+
+function matches(query: string): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(query).matches;
+}
+
+function compute(): DeviceLayout {
+  // Unsupported browsers report false, so they fall back to width classes.
+  const isSpanned = matches('(horizontal-viewport-segments: 2)');
+  const mode: LayoutMode = matches(`(min-width: ${EXPANDED_MIN}px)`)
+    ? 'expanded'
+    : matches(`(min-width: ${MEDIUM_MIN}px)`)
+      ? 'medium'
+      : 'compact';
+  // Sidebar on large or spanned screens, bottom nav everywhere else.
+  const showSidebar = mode === 'expanded' || isSpanned;
+  return { mode, isSpanned, showSidebar, showBottomNav: !showSidebar };
+}
+
+export function useDeviceLayout(): DeviceLayout {
+  const [layout, setLayout] = useState<DeviceLayout>(compute);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const lists = [
+      `(min-width: ${MEDIUM_MIN}px)`,
+      `(min-width: ${EXPANDED_MIN}px)`,
+      '(horizontal-viewport-segments: 2)',
+    ].map((q) => window.matchMedia(q));
+
+    const update = () =>
+      setLayout((prev) => {
+        const next = compute();
+        return prev.mode === next.mode && prev.isSpanned === next.isSpanned ? prev : next;
+      });
+
+    // Listening to media queries only fires when a boundary is crossed,
+    // unlike a resize listener, so rotating or unfolding costs one render.
+    lists.forEach((l) => l.addEventListener('change', update));
+    update();
+    return () => lists.forEach((l) => l.removeEventListener('change', update));
+  }, []);
+
+  return layout;
+}
+```
+
+### FILE: src/index.css (EXCERPT: shell, safe areas, hinge grid)
+Part A. Already in the project: keep as is. Shown so you can see how the responsive shell works.
+
+```css
+  /* ---------- App shell ---------- */
+  .app-shell { position: relative; z-index: 1; display: flex; min-height: 100vh; min-height: 100dvh; }
+  .app-nav-slot { flex: none; width: var(--sidebar-w); }
+  .app-sidebar { position: sticky; top: 0; height: 100vh; height: 100dvh; }
+  .app-column { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .app-header {
+    position: sticky; top: 0; z-index: 40;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+    background: rgb(10 11 13 / 0.55);
+    -webkit-backdrop-filter: blur(22px) saturate(170%);
+    backdrop-filter: blur(22px) saturate(170%);
+    border-bottom: 1px solid var(--border-color);
+  }
+  .light .app-header { background: rgb(244 236 221 / 0.72); }
+  .light .app-sidebar { background: rgb(236 224 200 / 0.78); }
+  .app-main { flex: 1; min-width: 0; padding: 1rem max(1rem, env(safe-area-inset-right, 0px)) 1.5rem max(1rem, env(safe-area-inset-left, 0px)); }
+  .app-content { width: 100%; min-width: 0; max-width: 1200px; margin-inline: auto; }
+
+  /* Phones and tablets: room above the docked tab bar */
+  @media (max-width: 1023px) {
+    .app-main { padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px) + 1.5rem); }
+  }
+  @media (min-width: 600px) {
+    .app-main { padding-top: 1.5rem; padding-inline: max(1.5rem, env(safe-area-inset-left, 0px)) max(1.5rem, env(safe-area-inset-right, 0px)); }
+  }
+  @media (min-width: 1024px) {
+    .app-main { padding-inline: max(2rem, env(safe-area-inset-left, 0px)) max(2rem, env(safe-area-inset-right, 0px)); }
+  }
+
+  /* Foldable spanning two screens: nav left, content right, empty hinge column between */
+  @media (horizontal-viewport-segments: 2) {
+    .app-shell {
+      display: grid;
+      grid-template-columns:
+        env(viewport-segment-width 0 0)
+        calc(env(viewport-segment-left 1 0) - env(viewport-segment-right 0 0))
+        minmax(0, 1fr);
+    }
+    .app-nav-slot { grid-column: 1; width: auto; }
+    .app-column { grid-column: 3; }
+  }
+```
+
+### FILE: src/index.css (EXCERPT: Markets dashboard columns)
+Part A. Already in the project: keep as is. Single column below 1280px, two independent columns above.
+
+```css
+  /* ---------- Markets dashboard ----------
+     Phone / tablet: one column in this order: hero, sentiment+AI, indicators, watchlist, live, news.
+     Laptop >=1280px: two independent columns, so News sits right under Sentiment+AI (no gap). */
+  .dash-root { display: flex; flex-direction: column; gap: 1rem; }
+  .dash-left, .dash-right { display: contents; }
+  .o-hero { order: 1; } .dash-pair { order: 2; } .o-tech { order: 3; } .o-watch { order: 4; } .o-live { order: 5; } .o-news { order: 6; }
+  .dash-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+  .dash-root > *, .dash-left > *, .dash-right > *, .dash-pair > * { min-width: 0; }
+  @media (max-width: 599px) { .dash-root, .dash-pair { gap: 0.625rem; } }
+  @media (min-width: 1280px) {
+    .dash-root { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(20rem, 1fr); gap: 1.25rem; align-items: start; }
+    .dash-left, .dash-right { display: flex; flex-direction: column; gap: 1.25rem; }
+    .dash-pair { gap: 1.25rem; }
+  }
+  .tech-inner { display: grid; gap: 0.5rem; grid-template-columns: 1.4fr 1fr; }
+  @media (min-width: 600px) { .tech-inner { gap: 0.75rem; } }
+```
+
+### FILE: src/App.tsx (EXCERPT: how the layout hook is used)
+Part A + B. Add the usePointerLight import and call; keep the rest of App.tsx unchanged.
+
+```tsx
+import { useDeviceLayout } from './hooks/useDeviceLayout';
+import { usePointerLight } from './hooks/usePointerLight';
+
+export default function App() {
+  const layout = useDeviceLayout();   // { mode, isSpanned, showSidebar, showBottomNav }
+  usePointerLight();                  // part B: pointer light on cards
+  // ...existing state and handlers...
+
+  // A foldable spanning two screens gives the content column only one screen's width.
+  const contentLayout = layout.isSpanned ? 'medium' : layout.mode;
+
+  return (
+    <div className="app-root text-[var(--text-primary)]" data-layout={contentLayout} data-bottom-nav={layout.showBottomNav}>
+      <div className="app-shell">
+        {layout.showSidebar && (
+          <div className="app-nav-slot">{/* <Sidebar ... /> */}</div>
+        )}
+        <div className="app-column">
+          {/* <Navbar showBrand={!layout.showSidebar} compact={layout.mode === 'compact'} ... /> */}
+          <main id="main" tabIndex={-1} className="app-main outline-none">
+            <div className="app-content">{/* active view */}</div>
+          </main>
+        </div>
+      </div>
+      {layout.showBottomNav && (/* <BottomNav ... /> */ null)}
+    </div>
+  );
+}
+```
+
+### FILE: src/hooks/usePointerLight.ts (NEW)
+Part B. New file.
+
+```ts
+import { useEffect } from 'react';
+
+/** Feeds the pointer position to whichever .ps-card is under it, so CSS can paint a soft light there.
+ *  One listener for the whole app, throttled with requestAnimationFrame, mouse/trackpad only. */
+export function usePointerLight() {
+  useEffect(() => {
+    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+    let raf = 0;
+    const onMove = (e: PointerEvent) => {
+      const card = (e.target as HTMLElement | null)?.closest<HTMLElement>('.ps-card');
+      if (!card) return;
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const r = card.getBoundingClientRect();
+        card.style.setProperty('--mx', `${e.clientX - r.left}px`);
+        card.style.setProperty('--my', `${e.clientY - r.top}px`);
+      });
+    };
+    document.addEventListener('pointermove', onMove, { passive: true });
+    return () => {
+      document.removeEventListener('pointermove', onMove);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+}
+```
+
+### FILE: src/index.css (APPEND at the end: moving light)
+Part B. Append to the end of index.css.
+
+```css
+/* ===== Liquid glass: moving light. Append to index.css (after the existing @layer components). ===== */
+@layer components {
+  /* 1. Ambient colour drifts slowly. Only transform animates, so it stays cheap. */
+  .app-root::before {
+    inset: -8%;
+    animation: ambient-drift 32s ease-in-out infinite alternate;
+    will-change: transform;
+  }
+  @keyframes ambient-drift {
+    from { transform: translate3d(0, 0, 0) scale(1); }
+    to   { transform: translate3d(-2.5%, 2%, 0) scale(1.08); }
+  }
+
+  /* 2. A soft highlight sweeps across the hero card and the dock every ~10s. */
+  .ps-hero::after, .dock::after {
+    content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+    background-image: linear-gradient(115deg, transparent 38%, rgb(255 255 255 / 0.20) 49%, rgb(255 255 255 / 0.05) 53%, transparent 64%);
+    background-size: 260% 100%; background-position: 140% 0;
+    animation: glass-sweep 10s ease-in-out infinite;
+  }
+  .dock::after { animation-delay: 2.5s; }
+  .light .ps-hero::after, .light .dock::after {
+    background-image: linear-gradient(115deg, transparent 38%, rgb(255 255 255 / 0.65) 49%, rgb(255 255 255 / 0.15) 53%, transparent 64%);
+  }
+  @keyframes glass-sweep {
+    0%, 55% { background-position: 140% 0; }
+    100%    { background-position: -40% 0; }
+  }
+
+  /* 3. Cards catch light under the mouse or trackpad (JS sets --mx and --my). */
+  @media (hover: hover) and (pointer: fine) {
+    .ps-card:not(.ps-hero)::after {
+      content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+      opacity: 0; transition: opacity 0.25s ease;
+      background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 0%), rgb(255 255 255 / 0.14), transparent 65%);
+    }
+    .ps-card:not(.ps-hero):hover::after { opacity: 1; }
+    .light .ps-card:not(.ps-hero)::after {
+      background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 0%), rgb(255 255 255 / 0.75), transparent 65%);
+    }
+  }
+
+  /* Reduced motion / reduced transparency: static light, no movement. */
+  @media (prefers-reduced-motion: reduce) {
+    .app-root::before { animation: none; }
+    .ps-hero::after, .dock::after { animation: none; opacity: 0; }
+  }
+  @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+    .ps-hero::after, .dock::after, .ps-card::after { display: none; }
+  }
+}
+```
+
+### FILE: src/index.css (APPEND at the end: bottom-bar lens)
+Part C. Append after the block above.
+
+```css
+/* ===== Bottom bar: sliding liquid-glass lens. Append to index.css (after the existing @layer components). ===== */
+@layer components {
+  .dock-track { position: relative; }
+
+  /* The lens is one glass droplet that slides to the active tab, overshoots a little, and stretches
+     while it travels. It carries its own specular highlight, so the "light" moves with it. */
+  .dock-lens {
+    position: absolute; top: 0; bottom: 0; left: 0; width: var(--lens-w, 0px);
+    border-radius: 1.25rem; pointer-events: none;
+    transform: translateX(var(--lens-x, 0px));
+    background:
+      radial-gradient(120% 90% at 50% 0%, rgb(255 255 255 / 0.38), transparent 60%),
+      linear-gradient(160deg, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0.04)),
+      var(--active-pill);
+    box-shadow:
+      inset 0 1px 1px rgb(255 255 255 / 0.55),
+      inset 0 -1px 1px rgb(0 0 0 / 0.25),
+      0 8px 22px color-mix(in srgb, var(--positive) 26%, transparent);
+    transition: transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1), width 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .dock-lens:not([data-ready]) { transition: none; }            /* no slide-in on first paint */
+  .dock-lens[data-moving] { animation: lens-stretch 0.55s ease-out; }
+  @keyframes lens-stretch {
+    0%   { scale: 1 1; }
+    35%  { scale: 1.2 0.93; }
+    100% { scale: 1 1; }
+  }
+  .light .dock-lens {
+    background:
+      radial-gradient(120% 90% at 50% 0%, rgb(255 255 255 / 0.9), transparent 60%),
+      linear-gradient(160deg, rgb(255 255 255 / 0.5), rgb(255 255 255 / 0.1)),
+      var(--active-pill);
+    box-shadow: inset 0 1px 0 #fff, 0 6px 16px rgb(122 92 40 / 0.18);
+  }
+
+  /* The lens now draws the active pill, so the tab itself only changes colour. */
+  .dock-tab[aria-current='page'], .dock-tab[aria-expanded='true'],
+  .light .dock-tab[aria-current='page'], .light .dock-tab[aria-expanded='true'] { background: transparent; box-shadow: none; }
+  .dock-tab { transition: color 0.2s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .dock-tab:active { transform: scale(0.94); }
+  .dock-tab > svg { transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .dock-tab[aria-current='page'] > svg, .dock-tab[aria-expanded='true'] > svg { transform: translateY(-1px) scale(1.12); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dock-lens { transition: none; animation: none; }
+    .dock-tab, .dock-tab > svg { transition: none; }
+    .dock-tab:active { transform: none; }
+  }
+}
+```
+
+### FILE: src/components/BottomNav.tsx (REPLACE whole file)
+Part C. Replaces the existing file. Same props as before.
+
+```tsx
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { BarChart2, Bell, Bookmark, Cpu, GitCompare, Globe, Home, Info, MoreHorizontal, Newspaper, Settings, Sparkles } from 'lucide-react';
+
+interface BottomNavProps {
+  activeView: string;
+  onNavigate: (view: string) => void;
+  onOpenAlerts?: () => void;
+  unreadAlertsCount?: number;
+}
+
+interface Dest {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+const TABS: Dest[] = [
+  { id: 'dashboard', label: 'Markets', icon: Home },
+  { id: 'explorer', label: 'Explorer', icon: BarChart2 },
+  { id: 'watchlist', label: 'Watchlist', icon: Bookmark },
+  { id: 'assistant', label: 'AI', icon: Sparkles },
+];
+const MORE: Dest[] = [
+  { id: 'compare', label: 'Compare', icon: GitCompare },
+  { id: 'algo', label: 'Quantitative Lab', icon: Cpu },
+  { id: 'overview', label: 'Global Overview', icon: Globe },
+  { id: 'news', label: 'Financial News', icon: Newspaper },
+  { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'about', label: 'About Us', icon: Info },
+];
+
+/** Floating liquid-glass dock. One glass "lens" slides between tabs (overshoots, stretches while
+ *  it travels) and carries its own highlight. It also slides to "More" while the sheet is open. */
+export const BottomNav: React.FC<BottomNavProps> = ({ activeView, onNavigate, onOpenAlerts, unreadAlertsCount = 0 }) => {
+  const [open, setOpen] = useState(false);
+  const moreBtn = useRef<HTMLButtonElement>(null);
+  const sheet = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const moreActive = MORE.some((m) => m.id === activeView);
+
+  // Which slot the lens sits on: the active tab, or "More" (index 4) when a More screen is active or the sheet is open.
+  const tabIndex = TABS.findIndex((t) => t.id === activeView);
+  const highlight = open ? TABS.length : tabIndex >= 0 ? tabIndex : moreActive ? TABS.length : -1;
+
+  const [lens, setLens] = useState<{ x: number; w: number } | null>(null);
+  const [ready, setReady] = useState(false);   // false on first paint so the lens does not slide in from the left
+  const [moving, setMoving] = useState(false); // true for ~0.55s after a change, drives the stretch keyframe
+  const prev = useRef(highlight);
+
+  useLayoutEffect(() => {
+    const track = trackRef.current;
+    if (!track || highlight < 0) {
+      setLens(null);
+      return;
+    }
+    const measure = () => {
+      const tab = track.querySelectorAll<HTMLElement>('.dock-tab')[highlight];
+      if (!tab) return;
+      const t = track.getBoundingClientRect();
+      const r = tab.getBoundingClientRect();
+      setLens({ x: r.left - t.left, w: r.width });
+    };
+    measure();
+    const ro = new ResizeObserver(measure); // rotation, unfolding, font load, window resize
+    ro.observe(track);
+    return () => ro.disconnect();
+  }, [highlight]);
+
+  useEffect(() => {
+    if (!lens || ready) return;
+    const id = requestAnimationFrame(() => setReady(true));
+    return () => cancelAnimationFrame(id);
+  }, [lens, ready]);
+
+  useEffect(() => {
+    if (prev.current !== highlight && prev.current >= 0 && highlight >= 0) {
+      setMoving(true);
+      const t = window.setTimeout(() => setMoving(false), 560);
+      prev.current = highlight;
+      return () => window.clearTimeout(t);
+    }
+    prev.current = highlight;
+  }, [highlight]);
+
+  const close = () => {
+    setOpen(false);
+    moreBtn.current?.focus();
+  };
+
+  // Escape closes the sheet, Tab stays inside it, focus moves into it on open.
+  useEffect(() => {
+    if (!open) return;
+    sheet.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') return close();
+      if (e.key !== 'Tab' || !sheet.current) return;
+      const items = Array.from(sheet.current.querySelectorAll<HTMLElement>('a[href], button'));
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === sheet.current)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
+  const go = (e: React.MouseEvent, id: string) => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    onNavigate(id);
+    setOpen(false);
+  };
+
+  return (
+    <>
+      {open && (
+        <>
+          <button type="button" className="sheet-backdrop" aria-label="Close menu" tabIndex={-1} onClick={close} />
+          <div ref={sheet} tabIndex={-1} role="dialog" aria-modal="true" aria-label="More destinations" className="sheet">
+            <div className="sheet-grip" aria-hidden="true" />
+            <ul className="grid gap-1">
+              {MORE.map((m) => (
+                <li key={m.id}>
+                  <a href={`#/${m.id}`} aria-current={activeView === m.id ? 'page' : undefined} onClick={(e) => go(e, m.id)} className="sheet-item">
+                    <m.icon aria-hidden="true" className="h-5 w-5" />
+                    {m.label}
+                  </a>
+                </li>
+              ))}
+              {onOpenAlerts && (
+                <li>
+                  <button type="button" className="sheet-item" onClick={() => { setOpen(false); onOpenAlerts(); }}>
+                    <Bell aria-hidden="true" className="h-5 w-5" />
+                    <span className="flex-1">Market Alerts</span>
+                    {unreadAlertsCount > 0 && <span className="tone-chip rounded-full px-2 text-xs font-bold">{unreadAlertsCount}<span className="sr-only"> unread</span></span>}
+                  </button>
+                </li>
+              )}
+            </ul>
+          </div>
+        </>
+      )}
+
+      <nav aria-label="Primary" className="dock">
+        <div ref={trackRef} className="dock-track" style={lens ? ({ '--lens-x': `${lens.x}px`, '--lens-w': `${lens.w}px` } as React.CSSProperties) : undefined}>
+          {lens && <span aria-hidden="true" className="dock-lens" data-ready={ready ? 'true' : undefined} data-moving={moving ? 'true' : undefined} />}
+          <ul>
+            {TABS.map((t) => (
+              <li key={t.id}>
+                <a href={`#/${t.id}`} aria-current={activeView === t.id ? 'page' : undefined} onClick={(e) => go(e, t.id)} className="dock-tab">
+                  <t.icon aria-hidden="true" className="h-[22px] w-[22px]" />
+                  {t.label}
+                </a>
+              </li>
+            ))}
+            <li>
+              <button
+                ref={moreBtn}
+                type="button"
+                aria-haspopup="dialog"
+                aria-expanded={open}
+                aria-current={moreActive ? 'page' : undefined}
+                onClick={() => setOpen(true)}
+                className="dock-tab"
+              >
+                <MoreHorizontal aria-hidden="true" className="h-[22px] w-[22px]" />
+                More
+                {unreadAlertsCount > 0 && (
+                  <span className="bottom-badge">
+                    <span aria-hidden="true">{unreadAlertsCount}</span>
+                    <span className="sr-only">{unreadAlertsCount} unread alerts</span>
+                  </span>
+                )}
+              </button>
+            </li>
+          </ul>
+        </div>
+      </nav>
+    </>
+  );
+};
+```
+
+=====================================================================
+END. Apply the files, then run the acceptance checks in section 5.
