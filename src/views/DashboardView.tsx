@@ -192,7 +192,7 @@ export function DashboardView({ indices, stocks, news, watchlist, baseCurrency, 
     const macd = n >= 26 ? macdSeries(series) : [];
     const sma = n >= 10 ? smaSeries(series, 20) : [];
     const bb = n >= 10 ? bollinger(series, 20) : { mid: [], upper: [], lower: [] };
-    const last = series[series.length - 1] ?? featured.value;
+    const last = series[series.length - 1] ?? featured?.value ?? 0;
 
     const fallbackRsiNow = rsi.length ? rsi[rsi.length - 1] : undefined;
     const fallbackMacdNow = macd.length ? macd[macd.length - 1] : undefined;
